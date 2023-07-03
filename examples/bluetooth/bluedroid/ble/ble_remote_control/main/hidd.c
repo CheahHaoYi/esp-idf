@@ -523,7 +523,7 @@ void set_hid_report_values(uint8_t joystick_x, uint8_t joystick_y, uint8_t butto
     val_hid_report[IDX_HID_REPORT_JOYSTICK_X] = joystick_x;
     val_hid_report[IDX_HID_REPORT_JOYSTICK_Y] = joystick_y;
     val_hid_report[IDX_HID_REPORT_SWITCH_BUTTONS] = hat_switch << 4;
-    val_hid_report[IDX_HID_REPORT_SWITCH_BUTTONS] = buttons | val_hid_report[IDX_HID_REPORT_SWITCH_BUTTONS];
+    val_hid_report[IDX_HID_REPORT_SWITCH_BUTTONS] |= buttons;
     val_hid_report[IDX_HID_REPORT_THROTTLE] = throttle;
 }
 

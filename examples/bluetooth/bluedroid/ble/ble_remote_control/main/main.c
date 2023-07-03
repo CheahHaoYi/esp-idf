@@ -9,6 +9,7 @@
 #include "esp_gatt_common_api.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 #include "freertos/event_groups.h"
 
 // Example includes
@@ -27,6 +28,7 @@
     
 const char *DEVICE_NAME = "ESP32 Remote";
 bool is_connected = false;
+QueueHandle_t input_queue = NULL;
 
 #define DELAY(x) vTaskDelay(x / portTICK_PERIOD_MS)
 
@@ -53,6 +55,8 @@ void print_user_input(uint8_t joystick_x, uint8_t joystick_y,
 
 void joystick_task() 
 {
+    esp_err_t ret = ESP_OK;
+    input_event_t input_event = {0};
     uint8_t x_axis = 0;
     uint8_t y_axis = 0;
     uint8_t hat_switch = 0; // unused in this example
@@ -60,16 +64,13 @@ void joystick_task()
     uint8_t throttle = 0; // unused in this example
 
     while(true){
-        DELAY(1500);
+        DELAY(500);
         
         if (!is_connected) {
             ESP_LOGI(HID_DEMO_TAG, "Not connected, do not send user input yet");
             DELAY(3000);
             continue;
         }
-
-        read_joystick_input(&x_axis, &y_axis);
-        read_button_input(&button_in);
 
         // HID report values to set is dependent on the HID report map (refer to hidd.c)
         // For this examples, the values to send are
@@ -78,11 +79,33 @@ void joystick_task()
             // hat switches : 4 bit
             // buttons 1 to 4: 1 bit each, 0 - 1
             // throttle: 8 bit
-        set_hid_report_values(x_axis, y_axis, hat_switch, button_in, throttle);
-        
-        print_user_input(x_axis, y_axis, hat_switch, button_in, throttle);
-        
-        esp_err_t ret = send_user_input();        
+
+        // Send report if there are any inputs
+        if (xQueueReceive(input_queue, &input_event, 100) == pdTRUE) {
+
+            switch (input_event.input_source) {
+            case (INPUT_SOURCE_BUTTON):
+                button_in = input_event.input_data;
+                ESP_LOGI(HID_DEMO_TAG, "Button input received");
+                break;
+            case (INPUT_SOURCE_CONSOLE):
+                char_to_joystick_input(input_event.input_data, &x_axis, &y_axis);
+                read_button_input(&button_in);
+                ESP_LOGI(HID_DEMO_TAG, "Console input received");
+                break;
+            default:
+                ESP_LOGE(HID_DEMO_TAG, "Unknown input source, source number %d", input_event.input_source);
+                break;
+            }
+
+            set_hid_report_values(x_axis, y_axis, button_in, hat_switch, throttle);
+            print_user_input(x_axis, y_axis, hat_switch, button_in, throttle);
+            ret = send_user_input();
+        } 
+        // Alternatively, to simply poll user input can do:
+        // read_joystick_input(&x_axis, &y_axis);
+        // read_button_input(&button_in);
+      
         if (ret != ESP_OK) {
             ESP_LOGE(HID_DEMO_TAG, "Error sending user input, code = %d", ret);
         }
@@ -162,6 +185,11 @@ void app_main(void)
         ESP_LOGE(HID_DEMO_TAG, "%s config joystick failed\n", __func__);
         return;
     }
+    ret = config_button_input();
+    if (ret != ESP_OK) {
+        ESP_LOGE(HID_DEMO_TAG, "%s config button failed\n", __func__);
+        return;
+    }
 
     ret = config_ble();
     if (ret != ESP_OK) {
@@ -184,6 +212,10 @@ void app_main(void)
     if (ret){
         ESP_LOGE(HID_DEMO_TAG, "set local  MTU failed, error code = %x", ret);
     }
+
+    // Create tasks and queue to handle input events
+    input_queue = xQueueCreate(10, sizeof(input_event_t));
+    xTaskCreate(console_read_joystick_input, "console_read_joystick_input", 2048, NULL, tskIDLE_PRIORITY, NULL);
 
     // Main joystick task
     joystick_task(); 

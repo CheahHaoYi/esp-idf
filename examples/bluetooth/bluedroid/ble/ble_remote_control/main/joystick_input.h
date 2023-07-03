@@ -1,11 +1,19 @@
 #pragma once
 
 #include <stdint.h>
+#include <ctype.h>
 
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "esp_adc/adc_oneshot.h"
+#include "esp_intr_alloc.h"
 #include "driver/gpio.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+
+
+#include "hidd.h"
 
 #define ADC_UNIT ADC_UNIT_1
 
@@ -25,16 +33,33 @@
 #define PIN_BUTTON_C GPIO_NUM_6
 #define PIN_BUTTON_D GPIO_NUM_7
 
-#define PIN_OUT_BIT_MASK ((1ULL<<PIN_BUTTON_A) | (1ULL<<PIN_BUTTON_B) | (1ULL<<PIN_BUTTON_C) | (1ULL<<PIN_BUTTON_D))
+#define BUTTON_PIN_BIT_MASK ((1ULL<<PIN_BUTTON_A) | (1ULL<<PIN_BUTTON_B) | (1ULL<<PIN_BUTTON_C) | (1ULL<<PIN_BUTTON_D))
 
-esp_err_t config_joystick_input();
+// 30 milliseconds debounce time
+#define DEBOUNCE_TIME_US 30000
+
+enum {
+    INPUT_SOURCE_BUTTON = 0,
+    INPUT_SOURCE_CONSOLE = 1
+};
+
+typedef struct {
+    uint8_t input_source;
+    uint8_t input_data;
+} input_event_t;
+
+esp_err_t config_joystick_input(void);
 
 void read_joystick_input(uint8_t *x_axis, uint8_t *y_axis);
 
-esp_err_t deinit_joystick_input();
+esp_err_t deinit_joystick_input(void);
 
-esp_err_t config_button_input();
+esp_err_t config_button_input(void);
 
 void read_button_input(uint8_t *button_in);
 
-esp_err_t deinit_button_input();
+esp_err_t deinit_button_input(void);
+
+void console_read_joystick_input(void *pvParameters);
+
+void char_to_joystick_input(uint8_t user_input, uint8_t *x_axis, uint8_t *y_axis);
