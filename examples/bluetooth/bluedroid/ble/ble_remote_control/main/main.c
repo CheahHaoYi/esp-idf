@@ -19,18 +19,17 @@
 
 #define HID_DEMO_TAG "HID_REMOTE_CONTROL"
 
-// Press all the buttons that represents the tear down bit mask to demostrate tear down
+// Uncomment the line below demostrate tear down
 #define DEMO_TEAR_DOWN 0
 #define TEAR_DOWN_BIT_MASK 0b0011 
 // Refer to HID report reference defined in hidd.c
     // bit 0 - Button A, bit 1 - Button B, bit 2 - Button C, bit 3 - Button D
-    // 0x03 represent pressing Button A and Button B simultaneously
-    
+    // 0b0011 represent pressing Button A and Button B simultaneously
+    // Pressing the button combination will trigger tear down
+
 const char *DEVICE_NAME = "ESP32 Remote";
 bool is_connected = false;
 QueueHandle_t input_queue = NULL;
-
-#define DELAY(x) vTaskDelay(x / portTICK_PERIOD_MS)
 
 void print_user_input(uint8_t joystick_x, uint8_t joystick_y, 
             uint8_t hat_switch, uint8_t buttons, uint8_t throttle) 
@@ -64,14 +63,13 @@ void joystick_task()
     uint8_t throttle = 0; // unused in this example
 
     while(true){
-        DELAY(500);
-        
+        DELAY(HID_LATENCY);
+
         if (!is_connected) {
             ESP_LOGI(HID_DEMO_TAG, "Not connected, do not send user input yet");
             DELAY(3000);
             continue;
         }
-
         // HID report values to set is dependent on the HID report map (refer to hidd.c)
         // For this examples, the values to send are
             // x_axis : 8 bit, 0 - 255
@@ -85,13 +83,20 @@ void joystick_task()
 
             switch (input_event.input_source) {
             case (INPUT_SOURCE_BUTTON):
-                button_in = input_event.input_data;
+                button_in = input_event.data_button;
+                read_joystick_input(&x_axis, &y_axis);  
                 ESP_LOGI(HID_DEMO_TAG, "Button input received");
                 break;
             case (INPUT_SOURCE_CONSOLE):
-                char_to_joystick_input(input_event.input_data, &x_axis, &y_axis);
                 read_button_input(&button_in);
+                char_to_joystick_input(input_event.data_console, &x_axis, &y_axis);
                 ESP_LOGI(HID_DEMO_TAG, "Console input received");
+                break;
+            case (INPUT_SOURCE_JOYSTICK):
+                read_button_input(&button_in);
+                x_axis = input_event.data_joystick_x;
+                y_axis = input_event.data_joystick_y;
+                ESP_LOGI(HID_DEMO_TAG, "Joystick input received");
                 break;
             default:
                 ESP_LOGE(HID_DEMO_TAG, "Unknown input source, source number %d", input_event.input_source);
@@ -102,6 +107,7 @@ void joystick_task()
             print_user_input(x_axis, y_axis, hat_switch, button_in, throttle);
             ret = send_user_input();
         } 
+
         // Alternatively, to simply poll user input can do:
         // read_joystick_input(&x_axis, &y_axis);
         // read_button_input(&button_in);
@@ -116,7 +122,6 @@ void joystick_task()
             break;
         }
 #endif
-
     }
 }
 
@@ -216,6 +221,7 @@ void app_main(void)
     // Create tasks and queue to handle input events
     input_queue = xQueueCreate(10, sizeof(input_event_t));
     xTaskCreate(console_read_joystick_input, "console_read_joystick_input", 2048, NULL, tskIDLE_PRIORITY, NULL);
+    xTaskCreate(ext_hardware_joystick, "ext_hardware_joystick", 2048, NULL, tskIDLE_PRIORITY, NULL);
 
     // Main joystick task
     joystick_task(); 

@@ -11,6 +11,8 @@
 #define BD_ADDR_2_STR(x) "Remote BD Addr %08x%04x", \
                         (x[0] << 24) + (x[1] << 16) + (x[2] << 8) + x[3], (x[4] << 8) + x[5] 
 
+#define HID_LATENCY 8	// 8ms
+
 /** 
  * Reference: Bluetooth HID over GATT Profile Spec
  * HID Profile includes the following services and mandatory characteristics: 

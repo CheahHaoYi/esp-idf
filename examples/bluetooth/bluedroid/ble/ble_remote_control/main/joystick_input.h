@@ -35,17 +35,26 @@
 
 #define BUTTON_PIN_BIT_MASK ((1ULL<<PIN_BUTTON_A) | (1ULL<<PIN_BUTTON_B) | (1ULL<<PIN_BUTTON_C) | (1ULL<<PIN_BUTTON_D))
 
+#define DELAY(x) vTaskDelay(x / portTICK_PERIOD_MS)
+
+// 10% threshold to send joystick input event when using external hardware
+#define JOYSTICK_THRESHOLD (UINT8_MAX / 10)
+
 // 30 milliseconds debounce time
 #define DEBOUNCE_TIME_US 30000
 
 enum {
     INPUT_SOURCE_BUTTON = 0,
-    INPUT_SOURCE_CONSOLE = 1
+    INPUT_SOURCE_CONSOLE = 1,
+    INPUT_SOURCE_JOYSTICK = 2,
 };
 
 typedef struct {
     uint8_t input_source;
-    uint8_t input_data;
+    uint8_t data_button;
+    uint8_t data_console;
+    uint8_t data_joystick_x;
+    uint8_t data_joystick_y;
 } input_event_t;
 
 esp_err_t config_joystick_input(void);
@@ -60,6 +69,8 @@ void read_button_input(uint8_t *button_in);
 
 esp_err_t deinit_button_input(void);
 
-void console_read_joystick_input(void *pvParameters);
+void console_read_joystick_input(void *args);
 
 void char_to_joystick_input(uint8_t user_input, uint8_t *x_axis, uint8_t *y_axis);
+
+void ext_hardware_joystick(void *args);

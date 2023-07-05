@@ -7,8 +7,6 @@
 
 #include "joystick_input.h"
 
-#define JOYSTICK_VALUE_MID 155
-
 static const char *TAG = "JOYSTICK_INPUT";
 
 static int raw_x = 0;
@@ -43,7 +41,7 @@ static void IRAM_ATTR button_isr_handler(void* arg)
     if (current_time - prev_trigger_time > DEBOUNCE_TIME_US) {
         input_event_t button_event = {
             .input_source = INPUT_SOURCE_BUTTON,
-            .input_data = button_input,
+            .data_button = button_input,
         };
 
         prev_trigger_time = current_time;
@@ -170,20 +168,23 @@ void deinit_adc_calibration(adc_cali_handle_t handle)
 #endif
 }
 
-void console_read_joystick_input(void *pvParameters)
+void console_read_joystick_input(void *args)
 {
     while (true) {
+        DELAY(HID_LATENCY);
+
         // Read from console, to emulate joystick input on PC
         int joystick_input = fgetc(stdin);
 
         // Skip invalid value
         if (joystick_input == EOF || isspace(joystick_input)) {
+            DELAY(100);
             continue;
         }
 
         input_event_t joystick_event = {
             .input_source = INPUT_SOURCE_CONSOLE,
-            .input_data = (uint8_t) joystick_input,
+            .data_console = (uint8_t) joystick_input,
         };
         xQueueSendFromISR(input_queue, &joystick_event, NULL);
     }
@@ -240,17 +241,41 @@ void read_joystick_input(uint8_t *x_axis, uint8_t *y_axis)
     ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, JOYSTICK_IN_X_ADC_CHANNEL, &raw_x));
     ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, JOYSTICK_IN_Y_ADC_CHANNEL, &raw_y));
 
-    // ESP_LOGI(TAG, "Raw X: %d, Raw Y: %d", raw_x, raw_y);
-
     // Map ADC to 8-bit range
     mapped_x = map_range(raw_x, 0, ADC_RAW_MAX, 0, UINT8_MAX);
     mapped_y = map_range(raw_y, 0, ADC_RAW_MAX, 0, UINT8_MAX);
-
-    // ESP_LOGI(TAG, "Mapped X: %d, Mapped Y: %d", mapped_x, mapped_y);
     
     // Assign value
     *x_axis = mapped_x;
     *y_axis = mapped_y;
+}
+
+void ext_hardware_joystick(void *args)
+{   
+    uint8_t curr_x = 0, curr_y = 0, prev_x = 0, prev_y = 0;
+
+    while (true) {
+
+        // Read from ADC
+        read_joystick_input(&curr_x, &curr_y);
+
+        // Skip if value is within threshold
+        if (abs(curr_x - prev_x) < JOYSTICK_THRESHOLD && abs(curr_y - prev_y) < JOYSTICK_THRESHOLD) {
+            DELAY(100);
+            continue;
+        }
+        // Update previous value
+        prev_x = curr_x;
+        prev_y = curr_y;
+
+        // Send to input queue
+        input_event_t joystick_event = {
+            .input_source = INPUT_SOURCE_JOYSTICK,
+            .data_joystick_x = curr_x,
+            .data_joystick_y = curr_y,
+        };
+        xQueueSendFromISR(input_queue, &joystick_event, NULL);
+    }
 }
 
 esp_err_t config_button_input(void)
