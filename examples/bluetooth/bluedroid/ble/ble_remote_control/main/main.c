@@ -20,7 +20,7 @@
 #define HID_DEMO_TAG "HID_REMOTE_CONTROL"
 
 // Uncomment the line below demostrate tear down
-#define DEMO_TEAR_DOWN 0
+// #define DEMO_TEAR_DOWN 0
 #define TEAR_DOWN_BIT_MASK 0b0011 
 // Refer to HID report reference defined in hidd.c
     // bit 0 - Button A, bit 1 - Button B, bit 2 - Button C, bit 3 - Button D
@@ -41,7 +41,7 @@ void print_user_input(uint8_t joystick_x, uint8_t joystick_y,
                 joystick_x, joystick_x, joystick_y, joystick_y, 
                 hat_switch, buttons, throttle);
 
-    if (buttons != 0) {
+    if (buttons) {
         ESP_LOGI(HID_DEMO_TAG, "Button pressed: %s %s %s %s", 
             (buttons & 0x01) ? "A" : "-",
             (buttons & 0x02) ? "B" : "-",
@@ -116,7 +116,7 @@ void joystick_task()
             ESP_LOGE(HID_DEMO_TAG, "Error sending user input, code = %d", ret);
         }
 
-#ifdef DEMO_TEAR_DOWN
+#ifdef CONFIG_EXAMPLE_ENABLE_TEAR_DOWN_DEMO
         if (button_in == TEAR_DOWN_BIT_MASK) {
             ESP_LOGI(HID_DEMO_TAG, "Tear down button sequence pressed, tear down connection and gpio");
             break;
@@ -220,18 +220,24 @@ void app_main(void)
 
     // Create tasks and queue to handle input events
     input_queue = xQueueCreate(10, sizeof(input_event_t));
+
+#ifdef CONFIG_JOYSTICK_INPUT_MODE_CONSOLE
+    print_console_read_help();
     xTaskCreate(console_read_joystick_input, "console_read_joystick_input", 2048, NULL, tskIDLE_PRIORITY, NULL);
+#else //CONFIG_JOYSTICK_INPUT_MODE_ADC
     xTaskCreate(ext_hardware_joystick, "ext_hardware_joystick", 2048, NULL, tskIDLE_PRIORITY, NULL);
+#endif
 
     // Main joystick task
     joystick_task(); 
     // Alternatively:
     // xTaskCreate(joystick_task, "joystick_task", 2048, NULL, 5, NULL);
 
+#ifdef CONFIG_EXAMPLE_ENABLE_TEAR_DOWN_DEMO
     // Tear down, after returning from joystick_task()
     tear_down();
-
     ESP_LOGI(HID_DEMO_TAG, "End of joystick demo, restarting in 5 seconds");
     DELAY(5000);
     esp_restart();
+#endif
 }

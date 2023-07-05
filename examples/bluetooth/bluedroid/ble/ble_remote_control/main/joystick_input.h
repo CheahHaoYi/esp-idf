@@ -28,12 +28,19 @@
 
 #define ADC_RAW_MAX 4095
 
+// If without external hardware, the boot button serves as the button A
+#define PIN_BUTTON_BOOT CONFIG_EXAMPLE_BOARD_BUTTON_GPIO
+
 #define PIN_BUTTON_A GPIO_NUM_4
 #define PIN_BUTTON_B GPIO_NUM_5
 #define PIN_BUTTON_C GPIO_NUM_6
 #define PIN_BUTTON_D GPIO_NUM_7
 
+#ifdef CONFIG_BUTTON_INPUT_MODE_BOOT
+#define BUTTON_PIN_BIT_MASK (1ULL<<PIN_BUTTON_BOOT)
+#else // CONFIG_BUTTON_INPUT_MODE_GPIO
 #define BUTTON_PIN_BIT_MASK ((1ULL<<PIN_BUTTON_A) | (1ULL<<PIN_BUTTON_B) | (1ULL<<PIN_BUTTON_C) | (1ULL<<PIN_BUTTON_D))
+#endif
 
 #define DELAY(x) vTaskDelay(x / portTICK_PERIOD_MS)
 
@@ -68,6 +75,8 @@ esp_err_t config_button_input(void);
 void read_button_input(uint8_t *button_in);
 
 esp_err_t deinit_button_input(void);
+
+void print_console_read_help(void);
 
 void console_read_joystick_input(void *args);
 

@@ -9,8 +9,10 @@
 
 static const char *TAG = "JOYSTICK_INPUT";
 
+#ifdef CONFIG_JOYSTICK_INPUT_MODE_ADC
 static int raw_x = 0;
 static int raw_y = 0;
+#endif
 
 static uint8_t mapped_x = 0;
 static uint8_t mapped_y = 0;
@@ -53,6 +55,7 @@ static void IRAM_ATTR button_isr_handler(void* arg)
 void set_button_bit(int pin_num, int pin_level)
 {
     switch (pin_num) {
+    case PIN_BUTTON_BOOT: // fallthrough
     case PIN_BUTTON_A:
         button_input |= (pin_level << 0);
         break;
@@ -79,7 +82,6 @@ uint8_t map_range(int x, int in_min, int in_max, int out_min, int out_max)
 esp_err_t config_joystick_input(void) 
 {
     // ADC Init
-    
     adc_oneshot_unit_init_cfg_t init_config = {
         .unit_id = ADC_UNIT,
     };
@@ -94,7 +96,7 @@ esp_err_t config_joystick_input(void)
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, JOYSTICK_IN_X_ADC_CHANNEL, &config));
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, JOYSTICK_IN_Y_ADC_CHANNEL, &config));
 
-    // Calibration
+    // ADC Calibration
     esp_err_t ret;
     ret = config_adc_calibration(JOYSTICK_IN_X_ADC_CHANNEL, &calibrate_handle_x);
     if (ret != ESP_OK) {
@@ -168,6 +170,15 @@ void deinit_adc_calibration(adc_cali_handle_t handle)
 #endif
 }
 
+void print_console_read_help(void)
+{
+    ESP_LOGI(TAG, "Console input help:");
+    ESP_LOGI(TAG, "\t Top Left(q) \t\t Top Center(w) \t\t\t Top Right(e)");
+    ESP_LOGI(TAG, "\t Middle Left(a) \t Middle Center(s) \t Middle Right(d)");
+    ESP_LOGI(TAG, "\t Bottom Left(z) \t Bottom Center(x) \t Bottom Right(c)");
+    ESP_LOGI(TAG, "Press Enter to send input, make sure caps lock is off\n");
+}
+
 void console_read_joystick_input(void *args)
 {
     while (true) {
@@ -237,6 +248,7 @@ void char_to_joystick_input(uint8_t user_input, uint8_t *x_axis, uint8_t *y_axis
 
 void read_joystick_input(uint8_t *x_axis, uint8_t *y_axis)
 {
+#ifdef CONFIG_JOYSTICK_INPUT_MODE_ADC
     // Read ADC
     ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, JOYSTICK_IN_X_ADC_CHANNEL, &raw_x));
     ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, JOYSTICK_IN_Y_ADC_CHANNEL, &raw_y));
@@ -244,7 +256,11 @@ void read_joystick_input(uint8_t *x_axis, uint8_t *y_axis)
     // Map ADC to 8-bit range
     mapped_x = map_range(raw_x, 0, ADC_RAW_MAX, 0, UINT8_MAX);
     mapped_y = map_range(raw_y, 0, ADC_RAW_MAX, 0, UINT8_MAX);
-    
+#else 
+    // Return default value if not using ADC
+    mapped_x = UINT8_MAX / 2;
+    mapped_y = UINT8_MAX / 2;
+#endif
     // Assign value
     *x_axis = mapped_x;
     *y_axis = mapped_y;
@@ -255,10 +271,9 @@ void ext_hardware_joystick(void *args)
     uint8_t curr_x = 0, curr_y = 0, prev_x = 0, prev_y = 0;
 
     while (true) {
-
-        // Read from ADC
+        DELAY(HID_LATENCY);
         read_joystick_input(&curr_x, &curr_y);
-
+        
         // Skip if value is within threshold
         if (abs(curr_x - prev_x) < JOYSTICK_THRESHOLD && abs(curr_y - prev_y) < JOYSTICK_THRESHOLD) {
             DELAY(100);
@@ -274,6 +289,7 @@ void ext_hardware_joystick(void *args)
             .data_joystick_x = curr_x,
             .data_joystick_y = curr_y,
         };
+
         xQueueSendFromISR(input_queue, &joystick_event, NULL);
     }
 }
@@ -292,13 +308,16 @@ esp_err_t config_button_input(void)
 
     ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_LEVEL1));
 
+#ifdef CONFIG_BUTTON_INPUT_MODE_BOOT
+    ESP_ERROR_CHECK(gpio_isr_handler_add(PIN_BUTTON_BOOT, button_isr_handler, (void*) PIN_BUTTON_BOOT));
+#else // CONFIG_BUTTON_INPUT_MODE_GPIO
     ESP_ERROR_CHECK(gpio_isr_handler_add(PIN_BUTTON_A, button_isr_handler, (void*) PIN_BUTTON_A));
     ESP_ERROR_CHECK(gpio_isr_handler_add(PIN_BUTTON_B, button_isr_handler, (void*) PIN_BUTTON_B));
     ESP_ERROR_CHECK(gpio_isr_handler_add(PIN_BUTTON_C, button_isr_handler, (void*) PIN_BUTTON_C));
     ESP_ERROR_CHECK(gpio_isr_handler_add(PIN_BUTTON_D, button_isr_handler, (void*) PIN_BUTTON_D));
+#endif
 
     esp_timer_early_init();
-
     return ESP_OK;
 }
 
@@ -306,25 +325,34 @@ esp_err_t config_button_input(void)
 // Least significant 4 bits represent buttons A, B, C, D
 void read_button_input(uint8_t *button_in) 
 {
+#ifdef CONFIG_BUTTON_INPUT_MODE_BOOT
+    // Boot button is active low (high when released, low when pressed)
+    set_button_bit(PIN_BUTTON_BOOT, 1 - gpio_get_level(PIN_BUTTON_BOOT));
+#else // CONFIG_BUTTON_INPUT_MODE_GPIO
     set_button_bit(PIN_BUTTON_A, gpio_get_level(PIN_BUTTON_A));
     set_button_bit(PIN_BUTTON_B, gpio_get_level(PIN_BUTTON_B));
     set_button_bit(PIN_BUTTON_C, gpio_get_level(PIN_BUTTON_C));
     set_button_bit(PIN_BUTTON_D, gpio_get_level(PIN_BUTTON_D));
-
-    ESP_LOGI(TAG, "Button Values, A: %d, B: %d, C: %d, D: %d", 
-        gpio_get_level(PIN_BUTTON_A), gpio_get_level(PIN_BUTTON_B), 
-        gpio_get_level(PIN_BUTTON_C), gpio_get_level(PIN_BUTTON_D));
+#endif
+    // ESP_LOGI(TAG, "Button Values, A: %d, B: %d, C: %d, D: %d", 
+    //     gpio_get_level(PIN_BUTTON_A), gpio_get_level(PIN_BUTTON_B), 
+    //     gpio_get_level(PIN_BUTTON_C), gpio_get_level(PIN_BUTTON_D));
 
     *button_in = button_input;
     button_input = 0;
 }
 
 esp_err_t deinit_button_input(void)
-{
+{   
+    gpio_uninstall_isr_service();
+#ifdef CONFIG_BUTTON_INPUT_MODE_BOOT
+    ESP_ERROR_CHECK(gpio_reset_pin(PIN_BUTTON_BOOT));
+#else // CONFIG_BUTTON_INPUT_MODE_GPIO
     ESP_ERROR_CHECK(gpio_reset_pin(PIN_BUTTON_A));
     ESP_ERROR_CHECK(gpio_reset_pin(PIN_BUTTON_B));
     ESP_ERROR_CHECK(gpio_reset_pin(PIN_BUTTON_C));
     ESP_ERROR_CHECK(gpio_reset_pin(PIN_BUTTON_D));
+#endif
     return ESP_OK;
 }
 
