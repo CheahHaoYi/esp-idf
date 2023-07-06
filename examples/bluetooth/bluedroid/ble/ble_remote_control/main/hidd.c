@@ -7,7 +7,7 @@
 */
 #include "hidd.h"
 
-#define HID_DEMO_TAG "HID_RC_HIDD"
+#define HID_DEMO_TAG "HID_RC"
 
 // Store handlers for each attribute, needed for reading/writing/notifying
 // Current implementation uses a struct with 3 arrays, but up to user to decide how to store handles
@@ -34,26 +34,26 @@ static const uint8_t val_report_map[] =
     0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
     0x09, 0x01,        // Usage (Pointer)
     0xA1, 0x00,        // Collection (Physical)
-    0x15, 0x00,        //     Logical Minimum (0)
-    0x26, 0xFF, 0x00,  //     Logical Maximum (255)
+    0x15, 0x00,        // Logical Minimum (0)
+    0x26, 0xFF, 0x00,  // Logical Maximum (255)
     0x75, 0x08,        // Report Size (8)
     0x95, 0x02,        // Report Count (2)
     0xA4,              // Push
     0x09, 0x30,        // Usage (X)
-    0x09, 0x31,        //       Usage (Y)
-    0x81, 0x02,        //       Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
-    0x09, 0x39,        //       Usage (Hat switch)
-    0x15, 0x00,        //       Logical Minimum (0)
-    0x25, 0x03,        //       Logical Maximum (3)
-    0x35, 0x00,        //       Physical Minimum (0)
-    0x46, 0x0E, 0x01,  //       Physical Maximum (270)
-    0x65, 0x40,        //       Unit (Length: Degrees)
-    0x95, 0x01,        //       Report Count (1)
-    0x75, 0x04,        //       Report Size (4)
-    0x81, 0x42,        //       Input (Data,Var,Abs,No Wrap,Linear,Preferred State,Null State)
-    0x15, 0x00,        //       Logical Minimum (0)
-    0x25, 0x01,        //       Logical Maximum (1)
-    0x95, 0x02,        //       Report Count (2)
+    0x09, 0x31,        // Usage (Y)
+    0x81, 0x02,        // Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+    0x09, 0x39,        // Usage (Hat switch)
+    0x15, 0x00,        // Logical Minimum (0)
+    0x25, 0x03,        // Logical Maximum (3)
+    0x35, 0x00,        // Physical Minimum (0)
+    0x46, 0x0E, 0x01,  // Physical Maximum (270)
+    0x65, 0x40,        // Unit (Length: Degrees)
+    0x95, 0x01,        // Report Count (1)
+    0x75, 0x04,        // Report Size (4)
+    0x81, 0x42,        // Input (Data,Var,Abs,No Wrap,Linear,Preferred State,Null State)
+    0x15, 0x00,        // Logical Minimum (0)
+    0x25, 0x01,        // Logical Maximum (1)
+    0x95, 0x02,        // Report Count (2)
     0x75, 0x01,        // Report Size (1)
     0x05, 0x09,        // Usage Page (Button)
     0x19, 0x01,        // Usage Minimum (0x01)
@@ -69,8 +69,6 @@ static const uint8_t val_report_map[] =
     0x95, 0x01,        // Report Count (1)
     0x81, 0x02,        // Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
     0xC0,              // End Collection
-
-    // 79 bytes
 };
     // Report Map: defines the format of the data returned when the HID device is queried for output data
     // Up to user to customize implementation
@@ -80,8 +78,8 @@ static uint8_t val_hid_cntl_pt = 0x00;
 static uint8_t val_hid_report[] = {0x00, 0x00, 0x00, 0x00};
     // HID report allows the HID device to send user input information to Central Device
     // As described by the report map above
-        // byte 0: X-axis, -127 to 127
-        // byte 1: Y-axis, -127 to 127
+        // byte 0: X-axis, 0 to 255
+        // byte 1: Y-axis, 0 to 255
         // byte 2: bits 0 - 3 => hat switch, bits 4 - 7 => buttons
         // byte 3: throttle
 static uint8_t val_cccd[] = {0x00, 0x00};
@@ -345,12 +343,11 @@ const esp_gatts_attr_db_t attr_tab_hid_svc[LEN_HID_SVC] =
     },
 };
 
-// Function declaration for each event callback under the HID profile, private to this file
+// HID Event Private Functions
 void hid_register_event(esp_gatt_if_t gatts_if);
 void hid_attribute_table_created_event(esp_ble_gatts_cb_param_t *param);
 void hid_close_event(void); 
 
-// Inherit from GATTS Event Callback
 void hid_event_callback(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
 									esp_ble_gatts_cb_param_t *param)
 {    
@@ -480,6 +477,9 @@ esp_err_t copy_attribute_handles(int instance_id, uint16_t *handles, int num_han
     }
 }
 
+/**
+ * @brief Handle attribute table creation event
+*/
 void hid_attribute_table_created_event(esp_ble_gatts_cb_param_t *param)
 {   
     // Same service instance ID as the one passed into esp_ble_gatts_create_attr_tab
@@ -502,9 +502,12 @@ void hid_attribute_table_created_event(esp_ble_gatts_cb_param_t *param)
     }
 }
 
+/**
+ * @brief Handle HID close event
+*/
 void hid_close_event(void) 
 { 
-    // Close all services
+    // Close each service
     // Each of the following triggers ESP_GATTS_STOP_EVT
     esp_ble_gatts_stop_service(handle_table.handles_bat_svc[IDX_BAT_SVC]);
     esp_ble_gatts_stop_service(handle_table.handles_hid_svc[IDX_HID_SVC]);
@@ -527,9 +530,10 @@ void set_hid_report_values(uint8_t joystick_x, uint8_t joystick_y, uint8_t butto
     val_hid_report[IDX_HID_REPORT_THROTTLE] = throttle;
 }
 
-esp_err_t send_user_input(){
-    ESP_LOGI(HID_DEMO_TAG, "Send notif, params: gatt_if: 0x%x, conn_id: 0x%x, attr_handle: 0x%x", client.gatt_if, client.connection_id, client.attr_handle);
-    ESP_LOGI(HID_DEMO_TAG, "Send notif, params: value_len: %d, values %x:%x:%x:%x", sizeof(val_hid_report)/sizeof(val_hid_report[0]), 
+esp_err_t send_user_input(void)
+{
+    ESP_LOGI(HID_DEMO_TAG, "Send notif, params: gatt_if: 0x%x, conn_id: 0x%x, attr_handle: 0x%x, len: %d, values %x:%x:%x:%x", 
+            client.gatt_if, client.connection_id, client.attr_handle, sizeof(val_hid_report)/sizeof(val_hid_report[0]),
             val_hid_report[0], val_hid_report[1], val_hid_report[2], val_hid_report[3]);
 
     return esp_ble_gatts_send_indicate(

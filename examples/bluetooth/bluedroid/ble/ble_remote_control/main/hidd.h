@@ -11,10 +11,10 @@
 #define BD_ADDR_2_STR(x) "Remote BD Addr %08x%04x", \
                         (x[0] << 24) + (x[1] << 16) + (x[2] << 8) + x[3], (x[4] << 8) + x[5] 
 
-#define HID_LATENCY 8	// 8ms
+#define HID_LATENCY 8	// 8ms report rate at minimum
 
 /** 
- * Reference: Bluetooth HID over GATT Profile Spec
+ * Reference: Bluetooth HID over GATT Profile Specification (HOGP)
  * HID Profile includes the following services and mandatory characteristics: 
  * - HID Service 				0x1812
  * 		- HID Information Characteristic	0x2A4A
@@ -114,30 +114,48 @@ enum { // HID Service
 	LEN_HID_SVC, // Total number of attributes in HID Service
 };
 
-// Struct for storing attribute handles, needed for sending notifications
+/**
+ * @brief Struct to store handles of attributes of services
+ * @details Handles are needed to send notifications to clients
+ * @details Simplified implementation to store attibute handles for the 3 services needed for HID Profile
+*/
 typedef struct {
 	uint16_t handles_bat_svc[LEN_BAT_SVC];
 	uint16_t handles_dev_info_svc[LEN_DEV_INFO_SVC];
 	uint16_t handles_hid_svc[LEN_HID_SVC];
 } handle_table_t;
 
-// Struc to store Client information, needed for send notifications
-// Created as a seperate struct so its easier to store information when available
+/**
+ * @brief Struct to store client information of connected devices
+ * @details The information needed to send notifications to clients 
+*/
 typedef struct {
 	esp_gatt_if_t gatt_if;
 	uint16_t connection_id;
 	uint16_t attr_handle;
 } client_info_t;
 
+/**
+ * @brief Callback function for HID Profile events (from GATTS callback)
+ * @details Handles events related to HID Profile
+ * 
+ * @param event Event type
+ * @param gatts_if GATT Server Interface
+ * @param param Event parameters
+*/
 void hid_event_callback(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
 									esp_ble_gatts_cb_param_t *param);
 
 /** 
- * @brief Create the hid report to be sent
+ * @brief Set the hid report values to be sent
  * 
+ * @note Values to be set depends on the HID Report Descriptor, specific to the device specification
  * @note Only the bottom 4 bits of buttons and hat_switch are used
 */
 void set_hid_report_values(uint8_t joystick_x, uint8_t joystick_y, uint8_t buttons, 
 								uint8_t hat_switch, uint8_t throttle);
 
-esp_err_t send_user_input();
+/**
+ * @brief Send the HID Report to the client (notification)
+*/
+esp_err_t send_user_input(void);

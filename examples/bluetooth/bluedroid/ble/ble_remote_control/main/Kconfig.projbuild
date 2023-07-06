@@ -1,6 +1,6 @@
 menu "Example Configuration"
 
-    config EXAMPLE_BOARD_BUTTON_GPIO
+    config BOARD_BUTTON_GPIO
         int "Boot Button GPIO"
         default 0 if !IDF_TARGET_ESP32C3
         default 9 if IDF_TARGET_ESP32C3
@@ -50,5 +50,33 @@ menu "Example Configuration"
         help
             Enable this option to demonstrate tear down when the tear down button bitmask combination is pressed.
             Need external buttons with pull-up resistors connected to GPIOs.
+    
+    config BUTTON_PIN_A
+        int "Button A GPIO"
+        depends on BUTTON_INPUT_MODE_GPIO
+        default 4
+        help
+            GPIO pin number on which the "Button A" is connected. 
+    
+    config BUTTON_PIN_B
+        int "Button B GPIO"
+        depends on BUTTON_INPUT_MODE_GPIO
+        default 5
+        help
+            GPIO pin number on which the "Button B" is connected. 
+    
+    config BUTTON_PIN_C
+        int "Button C GPIO"
+        depends on BUTTON_INPUT_MODE_GPIO
+        default 6
+        help
+            GPIO pin number on which the "Button C" is connected.
+    
+    config BUTTON_PIN_D
+        int "Button D GPIO"
+        depends on BUTTON_INPUT_MODE_GPIO
+        default 7
+        help
+            GPIO pin number on which the "Button D" is connected.
 
 endmenu

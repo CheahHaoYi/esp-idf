@@ -13,7 +13,7 @@
 #include "freertos/event_groups.h"
 
 // Example includes
-#include "joystick_input.h"
+#include "controller.h"
 #include "gap_gatts.h"
 #include "hidd.h"
 
@@ -27,11 +27,15 @@
     // 0b0011 represent pressing Button A and Button B simultaneously
     // Pressing the button combination will trigger tear down
 
-const char *DEVICE_NAME = "ESP32 Remote";
 bool is_connected = false;
 QueueHandle_t input_queue = NULL;
 
-void print_user_input(uint8_t joystick_x, uint8_t joystick_y, 
+const char *DEVICE_NAME = "ESP32 Remote";
+
+/**
+ * @brief   Print the user input report sent through BLE HID
+*/
+void print_user_input_report(uint8_t joystick_x, uint8_t joystick_y, 
             uint8_t hat_switch, uint8_t buttons, uint8_t throttle) 
 {
     ESP_LOGI(HID_DEMO_TAG, " ");
@@ -52,6 +56,12 @@ void print_user_input(uint8_t joystick_x, uint8_t joystick_y,
     ESP_LOGI(HID_DEMO_TAG, " ----- End of user input ----- \n");
 }
 
+/**
+ * @brief   Main task to send user input to the ESP to the central device
+ *          
+ * @details This task will wait for user input from the console, joystick, or button (using RTOS queue)
+ *          The function does not return unless Tear Down button sequence is pressed (and tear down config enabled in menuconfig)
+*/
 void joystick_task() 
 {
     esp_err_t ret = ESP_OK;
@@ -60,7 +70,7 @@ void joystick_task()
     uint8_t y_axis = 0;
     uint8_t hat_switch = 0; // unused in this example
     uint8_t button_in = 0;
-    uint8_t throttle = 0; // unused in this example
+    uint8_t throttle = 0;   // unused in this example
 
     while(true){
         DELAY(HID_LATENCY);
@@ -70,47 +80,47 @@ void joystick_task()
             DELAY(3000);
             continue;
         }
+
         // HID report values to set is dependent on the HID report map (refer to hidd.c)
-        // For this examples, the values to send are
+        // For this examples, the values in the HID report to send are
             // x_axis : 8 bit, 0 - 255
             // y_axis : 8 bit, 0 - 255
             // hat switches : 4 bit
             // buttons 1 to 4: 1 bit each, 0 - 1
             // throttle: 8 bit
 
-        // Send report if there are any inputs
+        // Send report if there are any inputs (refer to controller.c)
         if (xQueueReceive(input_queue, &input_event, 100) == pdTRUE) {
-
             switch (input_event.input_source) {
             case (INPUT_SOURCE_BUTTON):
                 button_in = input_event.data_button;
-                read_joystick_input(&x_axis, &y_axis);  
+                joystick_adc_read(&x_axis, &y_axis);  
                 ESP_LOGI(HID_DEMO_TAG, "Button input received");
                 break;
             case (INPUT_SOURCE_CONSOLE):
-                read_button_input(&button_in);
+                button_read(&button_in);
                 char_to_joystick_input(input_event.data_console, &x_axis, &y_axis);
                 ESP_LOGI(HID_DEMO_TAG, "Console input received");
                 break;
             case (INPUT_SOURCE_JOYSTICK):
-                read_button_input(&button_in);
+                button_read(&button_in);
                 x_axis = input_event.data_joystick_x;
                 y_axis = input_event.data_joystick_y;
                 ESP_LOGI(HID_DEMO_TAG, "Joystick input received");
                 break;
             default:
-                ESP_LOGE(HID_DEMO_TAG, "Unknown input source, source number %d", input_event.input_source);
+                ESP_LOGE(HID_DEMO_TAG, "Unknown input source, source %d", input_event.input_source);
                 break;
             }
 
             set_hid_report_values(x_axis, y_axis, button_in, hat_switch, throttle);
-            print_user_input(x_axis, y_axis, hat_switch, button_in, throttle);
+            print_user_input_report(x_axis, y_axis, hat_switch, button_in, throttle);
             ret = send_user_input();
         } 
 
         // Alternatively, to simply poll user input can do:
-        // read_joystick_input(&x_axis, &y_axis);
-        // read_button_input(&button_in);
+        // joystick_adc_read(&x_axis, &y_axis);
+        // button_read(&button_in);
       
         if (ret != ESP_OK) {
             ESP_LOGE(HID_DEMO_TAG, "Error sending user input, code = %d", ret);
@@ -125,10 +135,13 @@ void joystick_task()
     }
 }
 
-esp_err_t config_ble()
+/**
+ * @brief Initialize bluetooth resources
+ * @return ESP_OK on success; any other value indicates error
+*/
+esp_err_t ble_config(void)
 {
     esp_err_t ret;
-
     ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -139,7 +152,6 @@ esp_err_t config_ble()
 
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     ret = esp_bt_controller_init(&bt_cfg);
-
     if (ret) {
         ESP_LOGE(HID_DEMO_TAG, "%s initialize controller failed\n", __func__);
         return ESP_FAIL;
@@ -166,53 +178,52 @@ esp_err_t config_ble()
     return ESP_OK;
 }
 
-esp_err_t tear_down()
+/**
+ * @brief Tear down and free resources used
+*/
+esp_err_t tear_down(void)
 {
-    deinit_joystick_input();
-    deinit_button_input();
-    deinit_gap_gatts();
+    ESP_ERROR_CHECK(joystick_deinit());
+    ESP_ERROR_CHECK(button_deinit());
+    ESP_ERROR_CHECK(gap_gatts_deinit());
 
-    esp_bluedroid_disable();
-    esp_bluedroid_deinit();
-    esp_bt_controller_disable();
-    esp_bt_controller_mem_release(ESP_BT_MODE_BLE);
-    nvs_flash_erase();
+    ESP_ERROR_CHECK(esp_bluedroid_disable());
+    ESP_ERROR_CHECK(esp_bluedroid_deinit());
+    ESP_ERROR_CHECK(esp_bt_controller_disable());
+    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
+    ESP_ERROR_CHECK(nvs_flash_erase());
 
     return ESP_OK;
 }
 
 void app_main(void)
 {
+    // Resource initialisation
     esp_err_t ret;
-
-    ret = config_joystick_input();
+    ret = joystick_init();
     if (ret != ESP_OK) {
         ESP_LOGE(HID_DEMO_TAG, "%s config joystick failed\n", __func__);
         return;
     }
-    ret = config_button_input();
+    ret = button_init();
     if (ret != ESP_OK) {
         ESP_LOGE(HID_DEMO_TAG, "%s config button failed\n", __func__);
         return;
     }
-
-    ret = config_ble();
+    ret = ble_config();
     if (ret != ESP_OK) {
         ESP_LOGE(HID_DEMO_TAG, "%s config ble failed\n", __func__);
         return;
     }
     ESP_LOGI(HID_DEMO_TAG, "BLE configured");
 
+    // GAP and GATTS initialisation
     esp_ble_gap_register_callback(gap_event_callback);
     esp_ble_gatts_register_callback(gatts_event_callback);
     ESP_LOGI(HID_DEMO_TAG, "GAP and GATTS Callbacks registered");
-
     gap_set_security();
     ESP_LOGI(HID_DEMO_TAG, "Security set");
-
-    // Trigger ESP_GATTS_REG_EVT (see gap_gatts.c and hidd.c)
-    esp_ble_gatts_app_register(APP_ID_HID);
-    
+    esp_ble_gatts_app_register(ESP_GATT_UUID_HID_SVC); // Trigger ESP_GATTS_REG_EVT (see gap_gatts.c and hidd.c)
     ret = esp_ble_gatt_set_local_mtu(500);
     if (ret){
         ESP_LOGE(HID_DEMO_TAG, "set local  MTU failed, error code = %x", ret);
@@ -223,15 +234,13 @@ void app_main(void)
 
 #ifdef CONFIG_JOYSTICK_INPUT_MODE_CONSOLE
     print_console_read_help();
-    xTaskCreate(console_read_joystick_input, "console_read_joystick_input", 2048, NULL, tskIDLE_PRIORITY, NULL);
+    xTaskCreate(joystick_console_read, "console_read_joystick", 2048, NULL, tskIDLE_PRIORITY, NULL);
 #else //CONFIG_JOYSTICK_INPUT_MODE_ADC
-    xTaskCreate(ext_hardware_joystick, "ext_hardware_joystick", 2048, NULL, tskIDLE_PRIORITY, NULL);
+    xTaskCreate(joystick_ext_read, "ext_hardware_joystick", 2048, NULL, tskIDLE_PRIORITY, NULL);
 #endif
 
     // Main joystick task
     joystick_task(); 
-    // Alternatively:
-    // xTaskCreate(joystick_task, "joystick_task", 2048, NULL, 5, NULL);
 
 #ifdef CONFIG_EXAMPLE_ENABLE_TEAR_DOWN_DEMO
     // Tear down, after returning from joystick_task()

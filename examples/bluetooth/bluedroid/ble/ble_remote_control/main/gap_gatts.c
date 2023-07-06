@@ -10,26 +10,20 @@
 
 extern const char* DEVICE_NAME;
 
-// Remote device, stored for tear down if needed
-// static esp_bd_addr_t remote_bda = {0};
-
-// Can be found in hidd.c
-// extern client_info_t client;
-
-uint8_t hidd_service_uuid128[] = {
+static uint8_t hidd_service_uuid128[] = {
     // Universally Unique Identifier (UUID) for Human Interface Device (HID) Service 
     /* LSB <--------------------------------------------------------------------------------> MSB */
     // [12],[13] identifies it as a HID Service (0x1812)
     0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0x12, 0x18, 0x00, 0x00,
 };
 
-esp_ble_adv_data_t adv_data = {
+static esp_ble_adv_data_t adv_data = {
     .set_scan_rsp = false,
     .include_name = true,
     .include_txpower = true,
-    .min_interval = 0x0006, //slave connection min interval, Time = min_interval * 1.25 msec
-    .max_interval = 0x0010, //slave connection max interval, Time = max_interval * 1.25 msec
-    .appearance = 0x03c0,       //HID Generic,
+    .min_interval = 0x0006, 
+    .max_interval = 0x0010, 
+    .appearance = 0x03c0,       
     .manufacturer_len = 0,
     .p_manufacturer_data =  NULL,
     .service_data_len = 0,
@@ -39,7 +33,7 @@ esp_ble_adv_data_t adv_data = {
     .flag = 0x6,
 };
 
-esp_ble_adv_params_t adv_params = {
+static esp_ble_adv_params_t adv_params = {
     .adv_int_min        = 0x20,
     .adv_int_max        = 0x30,
     .adv_type           = ADV_TYPE_IND,
@@ -50,11 +44,9 @@ esp_ble_adv_params_t adv_params = {
     .adv_filter_policy  = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
 };
 
-
-// Defined in header file
-gatts_profile_inst_t hid_profile = {
-    .gatts_interface = ESP_GATT_IF_NONE, // default value
-    .callback = &hid_event_callback, // user defined callback function (in hidd.c)
+static gatts_profile_inst_t hid_profile = {
+    .gatts_interface = ESP_GATT_IF_NONE,    // default value
+    .callback = &hid_event_callback,        // user defined callback function (in hidd.c)
 };
 
 /** 
@@ -63,7 +55,7 @@ gatts_profile_inst_t hid_profile = {
 void gap_security_request_event(esp_ble_gap_cb_param_t *param);
 void gatts_register_event(esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param);
 
-esp_err_t deinit_gap_gatts(void) 
+esp_err_t gap_gatts_deinit(void) 
 {
     ESP_ERROR_CHECK(esp_ble_gatts_close(hid_profile.gatts_interface, hid_profile.conn_id));
     ESP_ERROR_CHECK(esp_ble_gatts_app_unregister(hid_profile.gatts_interface));
@@ -72,9 +64,9 @@ esp_err_t deinit_gap_gatts(void)
     return ESP_OK;
 }
 
-/**
- * GAP Related Functions
-*/
+/****************************************************************************************
+ * Generic Access Profile - GAP Related Functions
+****************************************************************************************/
 
 void gap_set_security(void) 
 {
@@ -141,6 +133,9 @@ void gap_event_callback(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *pa
     }
 }
 
+/**
+ * @brief Callback function for handling GAP security request events
+*/
 void gap_security_request_event(esp_ble_gap_cb_param_t *param)
 {
     /* 
@@ -153,17 +148,18 @@ void gap_security_request_event(esp_ble_gap_cb_param_t *param)
     esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, true);
 }
 
-/**
- * GATTS Related Functions
-*/
+/****************************************************************************************
+ * Generic ATTribute Profile (Server) - GATTS Related Functions
+****************************************************************************************/
+
 void gatts_event_callback(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
                                 esp_ble_gatts_cb_param_t *param)
 {   
     if (event == ESP_GATTS_REG_EVT) {
-        ESP_LOGI(HID_DEMO_TAG, "ESP_GATTS_REG_EVT");
+        ESP_LOGI(HID_DEMO_TAG, "Register GATTS profile");
         gatts_register_event(gatts_if, param);
     } else if (event == ESP_GATTS_CONNECT_EVT) {
-        // Store connection id for tear down if needed
+        // Store connection id for tear down
         hid_profile.conn_id = param->connect.conn_id;
     } else if (event == ESP_GATTS_DISCONNECT_EVT){
         // Restart advertising when disconnected
@@ -172,7 +168,7 @@ void gatts_event_callback(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
         ESP_LOGI(HID_DEMO_TAG, "GATTS to be handled by profile, event %d", event);
     }
 
-    // Cascade the gatts event to the profile
+    // Cascade the gatts event to the profile (in this example, there is only 1)
     if (gatts_if == ESP_GATT_IF_NONE || gatts_if == hid_profile.gatts_interface) {
         if (hid_profile.callback) {
             hid_profile.callback(event, gatts_if, param);
@@ -184,6 +180,9 @@ void gatts_event_callback(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
     return;
 }
 
+/**
+ * @brief Callback function for handling GATTS registration events
+*/
 void gatts_register_event(esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *param)
 {
     if (param->reg.status != ESP_GATT_OK) {
@@ -192,7 +191,7 @@ void gatts_register_event(esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t *para
                     param->reg.status);
         return;
     }
-    
+    // Store interface for tear down
     hid_profile.gatts_interface = gatts_if;
 
     esp_ble_gap_set_device_name(DEVICE_NAME);

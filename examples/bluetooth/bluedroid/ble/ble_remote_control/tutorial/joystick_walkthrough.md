@@ -971,5 +971,11 @@ if (prepare_write_env->prepare_buf) {
 prepare_write_env->prepare_len = 0;
 ```
 
-## Conclusion & Further References
+## Conclusion 
 In this document, we have gone through the GATT SERVER example code describing each section. The application is designed around the concept of Application Profiles. In addition, the procedures that this example uses to register event handlers are explained. The events follow a sequence of configuration steps, such as defining advertising parameters, updating connection parameters and creating services and characteristics. Finally, the way in which read and write events are handled, including Write Long characteristics by dividing the write into chunks that can fit the Attribute Protocol message is explained.
+
+### References
+- GAP API
+- GATTS API
+- USB 
+- Bluetooth Spec

@@ -1,6 +1,5 @@
-idf_component_register(SRCS "joystick_input.c" "hidd.c" 
-                            "gap_gatts.c" 
-                            
+idf_component_register(SRCS "controller.c" "hidd.c" 
+                            "gap_gatts.c"                         
                             "main.c" 
                     INCLUDE_DIRS ".")
 
