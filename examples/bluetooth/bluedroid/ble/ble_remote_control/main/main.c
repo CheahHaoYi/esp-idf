@@ -19,8 +19,6 @@
 
 #define HID_DEMO_TAG "HID_REMOTE_CONTROL"
 
-// Uncomment the line below demostrate tear down
-// #define DEMO_TEAR_DOWN 0
 #define TEAR_DOWN_BIT_MASK 0b0011 
 // Refer to HID report reference defined in hidd.c
     // bit 0 - Button A, bit 1 - Button B, bit 2 - Button C, bit 3 - Button D
