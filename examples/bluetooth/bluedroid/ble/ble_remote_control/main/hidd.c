@@ -71,6 +71,7 @@ static const uint8_t val_report_map[] =
     0xC0,              // End Collection
 };
     // Report Map: defines the format of the data returned when the HID device is queried for output data
+    // Above report map is slightly modified from the one in the HID specification
     // Up to user to customize implementation
 static uint8_t val_hid_cntl_pt = 0x00; 
     // HID Control Pt allows the Central Device to send information to HID device
@@ -88,7 +89,7 @@ static uint8_t val_cccd[] = {0x00, 0x00};
 static const uint8_t val_report_ref[] = {0x00, 0x01}; 
     // Report ID: 0, not used (0x00), Report Type: Input (0x01)
 
-// This is derived from the report map as defined above
+// This is derived from the report map as defined above, index for the user input report
 enum { 
     IDX_HID_REPORT_JOYSTICK_X = 0,
     IDX_HID_REPORT_JOYSTICK_Y = 1,
@@ -489,17 +490,17 @@ void hid_attribute_table_created_event(esp_ble_gatts_cb_param_t *param)
     
     if (!is_correct_attr_table_len(param->add_attr_tab.svc_inst_id, param->add_attr_tab.num_handle)) {
         ESP_LOGE(HID_DEMO_TAG, "Create attribute table abnormally, num_handle (%d) doesn't match instance_id (%d)", param->add_attr_tab.num_handle, param->add_attr_tab.svc_inst_id);
+        return;
     }
-    else {
-        ESP_LOGI(HID_DEMO_TAG, "Create attribute table successfully, the number handle = %d\n",param->add_attr_tab.num_handle);
-        // memcpy(handler_table, param->add_attr_tab.handles, param->add_attr_tab.num_handle * sizeof(uint16_t));
-        if (copy_attribute_handles(param->add_attr_tab.svc_inst_id, param->add_attr_tab.handles, param->add_attr_tab.num_handle) != ESP_OK) {
-            ESP_LOGE(HID_DEMO_TAG, "Failed to copy attribute handles");
-            return;
-        }
-        // Trigger ESP_GATTS_START_EVT, first element in add_attr_tab.handles is the service handle
-        esp_ble_gatts_start_service(param->add_attr_tab.handles[0]);
+    
+    ESP_LOGI(HID_DEMO_TAG, "Create attribute table successfully, the number handle = %d\n",param->add_attr_tab.num_handle);
+    // memcpy(handler_table, param->add_attr_tab.handles, param->add_attr_tab.num_handle * sizeof(uint16_t));
+    if (copy_attribute_handles(param->add_attr_tab.svc_inst_id, param->add_attr_tab.handles, param->add_attr_tab.num_handle) != ESP_OK) {
+        ESP_LOGE(HID_DEMO_TAG, "Failed to copy attribute handles");
+        return;
     }
+    // Trigger ESP_GATTS_START_EVT, first element in add_attr_tab.handles is the service handle
+    esp_ble_gatts_start_service(param->add_attr_tab.handles[0]);
 }
 
 /**
@@ -519,8 +520,8 @@ void set_hid_report_values(uint8_t joystick_x, uint8_t joystick_y, uint8_t butto
                                 uint8_t hat_switch, uint8_t throttle) 
 {
     // As described by the report map above
-        // byte 0: X-axis, -127 to 127
-        // byte 1: Y-axis, -127 to 127
+        // byte 0: X-axis, 0 to 255
+        // byte 1: Y-axis, 0 to 255
         // byte 2: bits 0 - 3 => hat switch, bits 4 - 7 => buttons
         // byte 3: throttle
     val_hid_report[IDX_HID_REPORT_JOYSTICK_X] = joystick_x;
