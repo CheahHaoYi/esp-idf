@@ -1,1 +1,0 @@
-# Remote Control Hardware tutorial
