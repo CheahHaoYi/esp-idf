@@ -8,4 +8,4 @@ countryName             = SG
 stateOrProvinceName     = SG
 localityName            = SG
 organizationName        = Espressif
-commonName              = 127.0.0.1 
+commonName              = 10.10.2.63 

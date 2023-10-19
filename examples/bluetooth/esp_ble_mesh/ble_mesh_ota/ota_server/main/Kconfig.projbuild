@@ -2,19 +2,6 @@ menu "Example Task Configuration"
 
     orsource "$IDF_PATH/examples/common_components/env_caps/$IDF_TARGET/Kconfig.env_caps"
 
-    # choice BLINK_LED
-    #     prompt "Blink LED type"
-    #     default BLINK_LED_GPIO if IDF_TARGET_ESP32 || !SOC_RMT_SUPPORTED
-    #     default BLINK_LED_RMT
-    #     help
-    #         Defines the default peripheral for blink example
-
-    #     config BLINK_LED_GPIO
-    #         bool "GPIO"
-    #     config BLINK_LED_RMT
-    #         bool "RMT - Addressable LED"
-    # endchoice
-
     config BLINK_GPIO
         int "Blink GPIO number"
         range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
@@ -26,22 +13,6 @@ menu "Example Task Configuration"
             GPIO number (IOxx) to blink on and off or the RMT signal for the addressable LED.
             Some GPIOs are used for other purposes (flash connections, etc.) and cannot be used to blink.
 
-    config BLINK_PERIOD
-        int "Blink period in ms"
-        range 10 3600000
-        default 1000
-        help
-            Define the blinking period in milliseconds.
-
-    
-    config BOARD_BUTTON_GPIO
-        int "Boot Button GPIO"
-        default 0 if !IDF_TARGET_ESP32C3
-        default 9 if IDF_TARGET_ESP32C3
-        help
-            GPIO number on which the "Boot" button is connected. This is generally used
-            by the application for custom operations like toggling states, resetting to defaults, etc.
-
     config OTA_VERSION
         int "OTA Version"
         range 1 4
@@ -51,57 +22,116 @@ menu "Example Task Configuration"
 
 endmenu
 
+menu "Example Wifi Configuration"
+    choice EXAMPLE_WIFI_SCAN_METHOD
+        prompt "WiFi Scan Method"
+        default EXAMPLE_WIFI_SCAN_METHOD_ALL_CHANNEL
+        help
+            WiFi scan method:
+
+            If "Fast" is selected, scan will end after find SSID match AP.
+
+            If "All Channel" is selected, scan will end after scan all the channel.
+
+        config EXAMPLE_WIFI_SCAN_METHOD_FAST
+            bool "Fast"
+        config EXAMPLE_WIFI_SCAN_METHOD_ALL_CHANNEL
+            bool "All Channel"
+    endchoice
+
+    choice EXAMPLE_WIFI_CONNECT_AP_SORT_METHOD
+        prompt "WiFi Connect AP Sort Method"
+        default EXAMPLE_WIFI_CONNECT_AP_BY_SIGNAL
+        help
+            WiFi connect AP sort method:
+
+            If "Signal" is selected, Sort matched APs in scan list by RSSI.
+
+            If "Security" is selected, Sort matched APs in scan list by security mode.
+
+        config EXAMPLE_WIFI_CONNECT_AP_BY_SIGNAL
+            bool "Signal"
+        config EXAMPLE_WIFI_CONNECT_AP_BY_SECURITY
+            bool "Security"
+    endchoice
+
+    menu "WiFi Scan threshold"
+        config EXAMPLE_WIFI_SCAN_RSSI_THRESHOLD
+            int "WiFi minimum rssi"
+            range -127 0
+            default -127
+            help
+                The minimum rssi to accept in the scan mode.
+
+        choice EXAMPLE_WIFI_SCAN_AUTH_MODE_THRESHOLD
+            prompt "WiFi Scan auth mode threshold"
+            default EXAMPLE_WIFI_AUTH_WPA2_PSK
+            help
+                The weakest authmode to accept in the scan mode.
+
+            config EXAMPLE_WIFI_AUTH_OPEN
+                bool "OPEN"
+            config EXAMPLE_WIFI_AUTH_WEP
+                bool "WEP"
+            config EXAMPLE_WIFI_AUTH_WPA_PSK
+                bool "WPA PSK"
+            config EXAMPLE_WIFI_AUTH_WPA2_PSK
+                bool "WPA2 PSK"
+            config EXAMPLE_WIFI_AUTH_WPA_WPA2_PSK
+                bool "WPA WPA2 PSK"
+            config EXAMPLE_WIFI_AUTH_WPA2_ENTERPRISE
+                bool "WPA2 ENTERPRISE"
+            config EXAMPLE_WIFI_AUTH_WPA3_PSK
+                bool "WPA3 PSK"
+            config EXAMPLE_WIFI_AUTH_WPA2_WPA3_PSK
+                bool "WPA2 WPA3 PSK"
+            config EXAMPLE_WIFI_AUTH_WAPI_PSK
+                bool "WAPI PSK"
+        endchoice
+    endmenu
+
+    config EXAMPLE_WIFI_CONN_MAX_RETRY
+        int "Maximum retry"
+        default 6
+        help
+            Set the Maximum retry to avoid station reconnecting to the AP unlimited,
+            in case the AP is really inexistent.
+
+endmenu
+
 menu "Example OTA Configuration"
 
     config EXAMPLE_FIRMWARE_UPGRADE_URL
         string "firmware upgrade url endpoint"
         default "https://127.0.0.1:8070/ble_mesh_ota.bin"
         help
-            URL of server which hosts the firmware
-            image.
+            URL of server which hosts the firmware image.
 
     config EXAMPLE_USE_CERT_BUNDLE
         bool "Enable certificate bundle"
-        default y
+        default n
         depends on MBEDTLS_CERTIFICATE_BUNDLE
         help
             Enable trusted root certificate bundle. This approach allows to have
             OTA updates functional with any public server without requirement
             to explicitly add its server certificate.
 
-    config EXAMPLE_FIRMWARE_UPGRADE_URL_FROM_STDIN
-        bool
-        default y if EXAMPLE_FIRMWARE_UPGRADE_URL = "FROM_STDIN"
-
     config EXAMPLE_SKIP_COMMON_NAME_CHECK
         bool "Skip server certificate CN fieldcheck"
-        default n
+        default y
         help
             This allows you to skip the validation of OTA server certificate CN field.
 
-    config EXAMPLE_FIRMWARE_UPGRADE_BIND_IF
-        bool "Support firmware upgrade bind specified interface"
-        default n
+    config EXAMPLE_OTA_RECV_TIMEOUT_MS
+        int "OTA Receive Timeout"
+        default 5000
         help
-            This allows you to bind specified interface in OTA example.
+            Maximum time for reception
 
-    choice EXAMPLE_FIRMWARE_UPGRADE_BIND_IF_TYPE
-        prompt "Choose OTA data bind interface"
-        default EXAMPLE_FIRMWARE_UPGRADE_BIND_IF_STA
-        depends on EXAMPLE_FIRMWARE_UPGRADE_BIND_IF
+    config EXAMPLE_OTA_UPDATE_INTERVAL_MS
+        int "OTA Update Interval"
+        default 1000
         help
-            Select which interface type of OTA data go through.
+            Interval between updates of OTA size to BLE Client
 
-        config EXAMPLE_FIRMWARE_UPGRADE_BIND_IF_STA
-            bool "Bind wifi station interface"
-            depends on EXAMPLE_CONNECT_WIFI
-            help
-                Select wifi station interface to pass the OTA data.
-
-        config EXAMPLE_FIRMWARE_UPGRADE_BIND_IF_ETH
-            bool "Bind ethernet interface"
-            depends on EXAMPLE_CONNECT_ETHERNET
-            help
-                Select ethernet interface to pass the OTA data.
-    endchoice
 endmenu

@@ -7,59 +7,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <inttypes.h>
-
-#include "esp_log.h"
-#include "nvs_flash.h"
-#include "esp_bt.h"
-#include "esp_timer.h"
-
-#include "esp_ble_mesh_defs.h"
-#include "esp_ble_mesh_common_api.h"
-#include "esp_ble_mesh_provisioning_api.h"
-#include "esp_ble_mesh_networking_api.h"
-#include "esp_ble_mesh_config_model_api.h"
-
-#include "ble_mesh_example_init.h"
-#include "ble_mesh_example_nvs.h"
-#include "board.h"
+#include "main.h"
 
 #define TAG "EXAMPLE"
 
-#define CID_ESP             0x02E5
-
-#define PROV_OWN_ADDR       0x0001
-
-#define MSG_SEND_TTL        3
-#define MSG_SEND_REL        false
-#define MSG_TIMEOUT         0
-#define MSG_ROLE            ROLE_PROVISIONER
-
-#define COMP_DATA_PAGE_0    0x00
-
-#define APP_KEY_IDX         0x0000
-#define APP_KEY_OCTET       0x12
-
-#define COMP_DATA_1_OCTET(msg, offset)      (msg[offset])
-#define COMP_DATA_2_OCTET(msg, offset)      (msg[offset + 1] << 8 | msg[offset])
-
-#define ESP_BLE_MESH_VND_MODEL_ID_CLIENT    0x0000
-#define ESP_BLE_MESH_VND_MODEL_ID_SERVER    0x0001
-
-#define ESP_BLE_MESH_VND_MODEL_OP_SEND      ESP_BLE_MESH_MODEL_OP_3(0x00, CID_ESP)
-#define ESP_BLE_MESH_VND_MODEL_OP_STATUS    ESP_BLE_MESH_MODEL_OP_3(0x01, CID_ESP)
-
-#define ESP_BLE_MESH_VND_MODEL_OP_SSID_TRSF         ESP_BLE_MESH_MODEL_OP_3(0x02, CID_ESP)
-#define ESP_BLE_MESH_VND_MODEL_OP_PW_TRSF           ESP_BLE_MESH_MODEL_OP_3(0x03, CID_ESP)
-#define ESP_BLE_MESH_VND_MODEL_OP_OTA_URL_TRSF      ESP_BLE_MESH_MODEL_OP_3(0x04, CID_ESP)
-
-char wifi_ssid[] = "ESP32_MESH_SSID";
-char wifi_pw[] = "12345678_test_password";
-char ota_url[] = "http://_test_OTA_URL";
+char wifi_ssid[] = CONFIG_EXAMPLE_WIFI_SSID;
+char wifi_pw[] = CONFIG_EXAMPLE_WIFI_PASSWORD;
+char ota_url[] = CONFIG_EXAMPLE_OTA_URL;
+uint64_t ota_size = CONFIG_EXAMPLE_OTA_SIZE;
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN];
+static nvs_handle_t NVS_HANDLE;
+static const char * NVS_KEY = "vendor_client";
 
 static struct example_info_store {
     uint16_t server_addr;   /* Vendor server unicast address */
@@ -68,9 +27,6 @@ static struct example_info_store {
     .server_addr = ESP_BLE_MESH_ADDR_UNASSIGNED,
     .vnd_tid = 0,
 };
-
-static nvs_handle_t NVS_HANDLE;
-static const char * NVS_KEY = "vendor_client";
 
 static struct esp_ble_mesh_key {
     uint16_t net_idx;
@@ -85,10 +41,10 @@ static esp_ble_mesh_cfg_srv_t config_server = {
 #else
     .friend_state = ESP_BLE_MESH_FRIEND_NOT_SUPPORTED,
 #endif
-    .default_ttl = 7,
+    .default_ttl = DEFAULT_TTL,
     /* 3 transmissions with 20ms interval */
-    .net_transmit = ESP_BLE_MESH_TRANSMIT(2, 20),
-    .relay_retransmit = ESP_BLE_MESH_TRANSMIT(2, 20),
+    .net_transmit = ESP_BLE_MESH_TRANSMIT(TRASMIT_COUNT, TRANSMIT_INTERVAL),
+    .relay_retransmit = ESP_BLE_MESH_TRANSMIT(TRASMIT_COUNT, TRANSMIT_INTERVAL),
 };
 
 static esp_ble_mesh_client_t config_client;
@@ -98,6 +54,8 @@ static const esp_ble_mesh_client_op_pair_t vnd_op_pair[] = {
     { ESP_BLE_MESH_VND_MODEL_OP_SSID_TRSF, ESP_BLE_MESH_VND_MODEL_OP_STATUS },
     { ESP_BLE_MESH_VND_MODEL_OP_PW_TRSF, ESP_BLE_MESH_VND_MODEL_OP_STATUS },
     { ESP_BLE_MESH_VND_MODEL_OP_OTA_URL_TRSF, ESP_BLE_MESH_VND_MODEL_OP_STATUS },
+    { ESP_BLE_MESH_VND_MODEL_OP_OTA_SIZE_TRSF, ESP_BLE_MESH_VND_MODEL_OP_STATUS },
+    { ESP_BLE_MESH_VND_MODEL_OP_OTA_PROGRESS, ESP_BLE_MESH_VND_MODEL_OP_STATUS },
 };
 
 static esp_ble_mesh_client_t vendor_client = {
@@ -106,7 +64,8 @@ static esp_ble_mesh_client_t vendor_client = {
 };
 
 static esp_ble_mesh_model_op_t vnd_op[] = {
-    ESP_BLE_MESH_MODEL_OP(ESP_BLE_MESH_VND_MODEL_OP_STATUS, 2),
+    ESP_BLE_MESH_MODEL_OP(ESP_BLE_MESH_VND_MODEL_OP_STATUS, VND_MSG_MIN_LEN),
+    ESP_BLE_MESH_MODEL_OP(ESP_BLE_MESH_VND_MODEL_OP_OTA_PROGRESS, VND_MSG_MIN_LEN),
     ESP_BLE_MESH_MODEL_OP_END,
 };
 
@@ -121,7 +80,7 @@ static esp_ble_mesh_model_t vnd_models[] = {
 };
 
 static esp_ble_mesh_elem_t elements[] = {
-    ESP_BLE_MESH_ELEMENT(0, root_models, vnd_models),
+    ESP_BLE_MESH_ELEMENT(LOC_DESCR, root_models, vnd_models),
 };
 
 static esp_ble_mesh_comp_t composition = {
@@ -133,7 +92,7 @@ static esp_ble_mesh_comp_t composition = {
 static esp_ble_mesh_prov_t provision = {
     .prov_uuid          = dev_uuid,
     .prov_unicast_addr  = PROV_OWN_ADDR,
-    .prov_start_address = 0x0005,
+    .prov_start_address = PROV_START_ADDR,
 };
 
 static void mesh_example_info_store(void)
@@ -174,11 +133,11 @@ static void example_ble_mesh_set_msg_common(esp_ble_mesh_client_common_param_t *
 static esp_err_t prov_complete(uint16_t node_index, const esp_ble_mesh_octet16_t uuid,
                                uint16_t primary_addr, uint8_t element_num, uint16_t net_idx)
 {
+    esp_err_t err;
     esp_ble_mesh_client_common_param_t common = {0};
     esp_ble_mesh_cfg_client_get_state_t get = {0};
     esp_ble_mesh_node_t *node = NULL;
     char name[10] = {'\0'};
-    esp_err_t err;
 
     ESP_LOGI(TAG, "node_index %u, primary_addr 0x%04x, element_num %u, net_idx 0x%03x",
         node_index, primary_addr, element_num, net_idx);
@@ -215,8 +174,14 @@ static void recv_unprov_adv_pkt(uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN], uint
                                 esp_ble_mesh_addr_type_t addr_type, uint16_t oob_info,
                                 uint8_t adv_type, esp_ble_mesh_prov_bearer_t bearer)
 {
-    esp_ble_mesh_unprov_dev_add_t add_dev = {0};
-    esp_err_t err;
+    esp_ble_mesh_unprov_dev_add_t add_dev = {
+        .addr_type = (uint8_t)addr_type,
+        .oob_info = oob_info,
+        .bearer = (uint8_t)bearer,
+    };
+    memcpy(add_dev.addr, addr, BD_ADDR_LEN);
+    memcpy(add_dev.uuid, dev_uuid, ESP_BLE_MESH_OCTET16_LEN);
+
 
     /* Due to the API esp_ble_mesh_provisioner_set_dev_uuid_match, Provisioner will only
      * use this callback to report the devices, whose device UUID starts with 0xdd & 0xdd,
@@ -227,15 +192,10 @@ static void recv_unprov_adv_pkt(uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN], uint
     ESP_LOGI(TAG, "Address type 0x%02x, adv type 0x%02x", addr_type, adv_type);
     ESP_LOG_BUFFER_HEX("Device UUID", dev_uuid, ESP_BLE_MESH_OCTET16_LEN);
     ESP_LOGI(TAG, "oob info 0x%04x, bearer %s", oob_info, (bearer & ESP_BLE_MESH_PROV_ADV) ? "PB-ADV" : "PB-GATT");
-
-    memcpy(add_dev.addr, addr, BD_ADDR_LEN);
-    add_dev.addr_type = (uint8_t)addr_type;
-    memcpy(add_dev.uuid, dev_uuid, ESP_BLE_MESH_OCTET16_LEN);
-    add_dev.oob_info = oob_info;
-    add_dev.bearer = (uint8_t)bearer;
+    
     /* Note: If unprovisioned device adv packets have not been received, we should not add
              device with ADD_DEV_START_PROV_NOW_FLAG set. */
-    err = esp_ble_mesh_provisioner_add_unprov_dev(&add_dev,
+    esp_err_t err = esp_ble_mesh_provisioner_add_unprov_dev(&add_dev,
             ADD_DEV_RM_AFTER_PROV_FLAG | ADD_DEV_START_PROV_NOW_FLAG | ADD_DEV_FLUSHABLE_DEV_FLAG);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to start provisioning device");
@@ -314,35 +274,31 @@ static void example_ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event,
 
 static void example_ble_mesh_parse_node_comp_data(const uint8_t *data, uint16_t length)
 {
-    uint16_t cid, pid, vid, crpl, feat;
-    uint16_t loc, model_id, company_id;
-    uint8_t nums, numv;
-    uint16_t offset;
-    int i;
-
-    cid = COMP_DATA_2_OCTET(data, 0);
-    pid = COMP_DATA_2_OCTET(data, 2);
-    vid = COMP_DATA_2_OCTET(data, 4);
-    crpl = COMP_DATA_2_OCTET(data, 6);
-    feat = COMP_DATA_2_OCTET(data, 8);
-    offset = 10;
+    uint16_t cid = COMP_DATA_2_OCTET(data, 0);
+    uint16_t pid = COMP_DATA_2_OCTET(data, 2);
+    uint16_t vid = COMP_DATA_2_OCTET(data, 4);
+    uint16_t crpl = COMP_DATA_2_OCTET(data, 6);
+    uint16_t feat = COMP_DATA_2_OCTET(data, 8);
 
     ESP_LOGI(TAG, "********************** Composition Data Start **********************");
     ESP_LOGI(TAG, "* CID 0x%04x, PID 0x%04x, VID 0x%04x, CRPL 0x%04x, Features 0x%04x *", cid, pid, vid, crpl, feat);
-    for (; offset < length; ) {
-        loc = COMP_DATA_2_OCTET(data, offset);
-        nums = COMP_DATA_1_OCTET(data, offset + 2);
-        numv = COMP_DATA_1_OCTET(data, offset + 3);
-        offset += 4;
+    for (uint16_t offset = COMPOSITION_DATA_OFFSET; offset < length; ) {
+        uint16_t loc = COMP_DATA_2_OCTET(data, offset);
+        uint8_t nums = COMP_DATA_1_OCTET(data, offset + 2);
+        uint8_t numv = COMP_DATA_1_OCTET(data, offset + 3);
         ESP_LOGI(TAG, "* Loc 0x%04x, NumS 0x%02x, NumV 0x%02x *", loc, nums, numv);
-        for (i = 0; i < nums; i++) {
-            model_id = COMP_DATA_2_OCTET(data, offset);
+
+        offset += 4;
+
+        for (int i = 0; i < nums; i++) {
+            uint16_t model_id = COMP_DATA_2_OCTET(data, offset);
             ESP_LOGI(TAG, "* SIG Model ID 0x%04x *", model_id);
             offset += 2;
         }
-        for (i = 0; i < numv; i++) {
-            company_id = COMP_DATA_2_OCTET(data, offset);
-            model_id = COMP_DATA_2_OCTET(data, offset + 2);
+
+        for (int i = 0; i < numv; i++) {
+            uint16_t company_id = COMP_DATA_2_OCTET(data, offset);
+            uint16_t model_id = COMP_DATA_2_OCTET(data, offset + 2);
             ESP_LOGI(TAG, "* Vendor Model ID 0x%04x, Company ID 0x%04x *", model_id, company_id);
             offset += 4;
         }
@@ -353,10 +309,11 @@ static void example_ble_mesh_parse_node_comp_data(const uint8_t *data, uint16_t 
 static void example_ble_mesh_config_client_cb(esp_ble_mesh_cfg_client_cb_event_t event,
                                               esp_ble_mesh_cfg_client_cb_param_t *param)
 {
+    esp_err_t err;
+    esp_ble_mesh_node_t *node = NULL;
+
     esp_ble_mesh_client_common_param_t common = {0};
     esp_ble_mesh_cfg_client_set_state_t set = {0};
-    esp_ble_mesh_node_t *node = NULL;
-    esp_err_t err;
 
     ESP_LOGI(TAG, "Config client, err_code %d, event %u, addr 0x%04x, opcode 0x%04" PRIx32,
         param->error_code, event, param->params->ctx.addr, param->params->opcode);
@@ -463,16 +420,17 @@ static void example_ble_mesh_config_client_cb(esp_ble_mesh_cfg_client_cb_event_t
 
 void example_ble_mesh_send_ota_credential(void)
 {
-    esp_ble_mesh_msg_ctx_t ctx = {0};
     esp_err_t err;
 
-    ctx.net_idx = prov_key.net_idx;
-    ctx.app_idx = prov_key.app_idx;
-    ctx.addr = store.server_addr;
-    ctx.send_ttl = MSG_SEND_TTL;
-    ctx.send_rel = MSG_SEND_REL;
+    esp_ble_mesh_msg_ctx_t ctx = {
+        .net_idx = prov_key.net_idx,
+        .app_idx = prov_key.app_idx,
+        .addr = store.server_addr,
+        .send_ttl = MSG_SEND_TTL,
+        .send_rel = MSG_SEND_REL,
+    };
 
-    // Send wifi ssid, pw, ota url in that order
+    // Send wifi ssid, pw, ota url, firmware size in that order
     err = esp_ble_mesh_client_model_send_msg(vendor_client.model, &ctx, ESP_BLE_MESH_VND_MODEL_OP_SSID_TRSF,
         sizeof(wifi_ssid), (uint8_t *)&wifi_ssid, MSG_TIMEOUT, false, MSG_ROLE);
     if (err != ESP_OK) {
@@ -490,6 +448,12 @@ void example_ble_mesh_send_ota_credential(void)
         sizeof(ota_url), (uint8_t *)&ota_url, MSG_TIMEOUT, false, MSG_ROLE);
     if (err != ESP_OK) {
         ESP_LOGI(TAG, "Failed to send OTA URL");
+        return;
+    }
+    err = esp_ble_mesh_client_model_send_msg(vendor_client.model, &ctx, ESP_BLE_MESH_VND_MODEL_OP_OTA_SIZE_TRSF,
+        sizeof(ota_size), (uint8_t *)&ota_size, MSG_TIMEOUT, false, MSG_ROLE);
+    if (err != ESP_OK) {
+        ESP_LOGI(TAG, "Failed to send OTA size");
         return;
     }
 
@@ -515,15 +479,9 @@ void example_ble_mesh_send_vendor_message(bool resend) // to remove
         store.vnd_tid++;
     }
 
-    char str[] = "Hello World";
-
-    // uint8_t msg_arr[100];
-    // memcpy(msg_arr, str, ARRAY_SIZE(str));
-
     err = esp_ble_mesh_client_model_send_msg(vendor_client.model, &ctx, opcode,
-            sizeof(str), (uint8_t *)&str, MSG_TIMEOUT, false, MSG_ROLE);
-    // err = esp_ble_mesh_client_model_send_msg(vendor_client.model, &ctx, opcode,
-    //         sizeof(store.vnd_tid), (uint8_t *)&store.vnd_tid, MSG_TIMEOUT, true, MSG_ROLE);
+            sizeof(store.vnd_tid), (uint8_t *)&store.vnd_tid, MSG_TIMEOUT, true, MSG_ROLE);
+
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to send vendor message 0x%06" PRIx32, opcode);
         return;
@@ -545,7 +503,7 @@ static void example_ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event
             int64_t end_time = esp_timer_get_time();
             ESP_LOGI(TAG, "Recv 0x06%" PRIx32 ", tid 0x%04x, time %lldus",
                 param->model_operation.opcode, store.vnd_tid, end_time - start_time);
-        }
+        } 
         break;
     case ESP_BLE_MESH_MODEL_SEND_COMP_EVT:
         if (param->model_send_comp.err_code) {
@@ -556,7 +514,14 @@ static void example_ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event
         ESP_LOGI(TAG, "Send 0x%06" PRIx32, param->model_send_comp.opcode);
         break;
     case ESP_BLE_MESH_CLIENT_MODEL_RECV_PUBLISH_MSG_EVT:
-        ESP_LOGI(TAG, "Receive publish message 0x%06" PRIx32, param->client_recv_publish_msg.opcode);
+        if (param->client_recv_publish_msg.opcode == ESP_BLE_MESH_VND_MODEL_OP_OTA_PROGRESS) {
+            uint64_t ota_size = 0;
+            memcpy(&ota_size, param->client_recv_publish_msg.msg, sizeof(ota_size));
+            ESP_LOGI(TAG, "Received ota update, OTA size: %" PRIu64, ota_size);
+        } else {
+            ESP_LOGI(TAG, "Receive publish message 0x%06" PRIx32, param->client_recv_publish_msg.opcode);
+        }
+        
         break;
     case ESP_BLE_MESH_CLIENT_MODEL_SEND_TIMEOUT_EVT:
         ESP_LOGW(TAG, "Client message 0x%06" PRIx32 " timeout", param->client_send_timeout.opcode);
@@ -569,8 +534,8 @@ static void example_ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event
 
 static esp_err_t ble_mesh_init(void)
 {
-    uint8_t match[2] = { 0x32, 0x10 };
     esp_err_t err;
+    uint8_t match[2] = DEVICE_UUID;
 
     prov_key.net_idx = ESP_BLE_MESH_KEY_PRIMARY;
     prov_key.app_idx = APP_KEY_IDX;
@@ -617,11 +582,12 @@ static esp_err_t ble_mesh_init(void)
 
 void app_main(void)
 {
-    esp_err_t err;
+    #if CONFIG_EXAMPLE_OTA_SIZE == 0
+    ESP_LOGI(TAG, "Expected OTA size is 0, aborting, please set CONFIG_EXAMPLE_OTA_SIZE in menuconfig");
+    return;
+    #endif
 
-    ESP_LOGI(TAG, "Initializing...");
-
-    err = nvs_flash_init();
+    esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
         ESP_ERROR_CHECK(nvs_flash_erase());
         err = nvs_flash_init();
@@ -639,6 +605,7 @@ void app_main(void)
     /* Open nvs namespace for storing/restoring mesh example info */
     err = ble_mesh_nvs_open(&NVS_HANDLE);
     if (err) {
+        ESP_LOGE(TAG, "NVS open failed (err %d)", err);
         return;
     }
 

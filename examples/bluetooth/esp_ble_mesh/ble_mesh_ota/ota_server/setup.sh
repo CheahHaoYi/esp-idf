@@ -13,4 +13,4 @@ cd server_certs
 bash generate_cert.sh
 cd ..
 
-echo "Please change the WIFI_SSID and WIFI_PASSWORD through idf.py menuconfig"
+echo "ca_cert.pem and ca_key.pem generated in server_certs folder" 

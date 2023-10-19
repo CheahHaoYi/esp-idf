@@ -16,12 +16,10 @@
 #define BUTTON_IO_NUM           0
 #define BUTTON_ACTIVE_LEVEL     0
 
-extern void example_ble_mesh_send_vendor_message(bool resend);
 extern void example_ble_mesh_send_ota_credential(void);
 
 static void button_tap_cb(void* arg)
 {
-    // example_ble_mesh_send_vendor_message(false);
     example_ble_mesh_send_ota_credential();
 }
 
