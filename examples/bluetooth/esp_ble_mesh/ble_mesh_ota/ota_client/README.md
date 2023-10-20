@@ -1,69 +1,89 @@
 | Supported Targets | ESP32 | ESP32-C3 | ESP32-C6 | ESP32-S3 |
 | ----------------- | ----- | -------- | -------- | -------- |
 
-ESP BLE Mesh Vendor Client Example
+ESP BLE Mesh OTA Client Example
 ==================================
 
-This example demonstrates how to create a vendor client model in Provisioner, and the [vendor server example](../vendor_server) demonstrates how to create a vendor server model in an unprovisioned device.
+This example demonstrates how to create a vendor client model in Provisioner, and the [ota server example](../ota_server) demonstrates how to create a vendor server model in an unprovisioned device.
 
 ### 1. Procedures
-1. Compile the vendor client and vendor server examples and flash;
-2. When Provisioner starts, it will register callbacks, initialize mesh stack, initialize the vendor client model, set matching device uuid, enable its functionality, add local application key and bind the application key with the vendor client model;
-3. When the unprovisioned device starts, it will initialize mesh stack and enable its functionality;
-4. When the Provisioner and unprovisioned device are ready, the Provisioner will start to provision the unprovisioned device;
-5. After the device is provisioned successfully, Provisioner will configure the node, i.e. add application key, bind application key with the vendor server model of the node;
-6. After the configuration is completed, users can press the "Boot" button on the development board to send a vendor client message to the node;
-7. When the node receives the vendor client message, it will send a vendor server message as a response;
-8. After the Provisioner receives the response, it will calculate the latency (in microseconds).
+
+#### 1.1 Setup
+1. Create a new self-signed certificate and key by running `bash setup.sh`, alternatively refer to the [OTA example setup](../../../../system/ota/).
+2. Copy the generated certificates to the build directory, `cp server_certs/ca* build`
+3. On the client project side, run `idf.py menuconfig` to enter the WIFI SSID and Password, or choose the option to read from `stdin`
+4. Flash both the client and server example code on 2 separate boards
+5. (Optional) On the server project side, change the `OTA_VERSION` macro (via `ota.h` or `idf.py menuconfig`), so that the board running server program will flash a different LED color after a successful OTA update
+6. Start the HTTPS server on a separate terminal
+    - (Reccomended) run `python python pytest_simple_ota.py build 8070` 
+    - run `bash run_server.sh` for an openssl server
+
+#### 1.2 Running the examples
+1. Once both examples are flashed, the boards will enter provisioning immediately
+2. Press the boot button on the board running the client example to send the credentials to the board running the server example
+3. If the transfer is sucessful, the board running the server example will connect to WIFI and download the firmware update
+4. If the firmware update download is sucessful, the board will restart and run the updated firmware.
 
 ### 2. Results
-The following is a sample test result, the distance between the Provisioner and the node is about 1 meter.
 
-#### 2.1 Provisioner - Vendor Client
-
-```
-I (6684) Client: Send 0xc002e5
-I (6834) Client: Recv 0xc102e5, tid 0x0001, time 156585us
-I (7934) Client: Send 0xc002e5
-I (8024) Client: Recv 0xc102e5, tid 0x0002, time 83348us
-I (9044) Client: Send 0xc002e5
-I (9094) Client: Recv 0xc102e5, tid 0x0003, time 51202us
-I (10244) Client: Send 0xc002e5
-I (10294) Client: Recv 0xc102e5, tid 0x0004, time 45290us
-I (11544) Client: Send 0xc002e5
-I (11564) Client: Recv 0xc102e5, tid 0x0005, time 22973us
-I (12734) Client: Send 0xc002e5
-I (12754) Client: Recv 0xc102e5, tid 0x0006, time 22369us
-I (14114) Client: Send 0xc002e5
-I (14134) Client: Recv 0xc102e5, tid 0x0007, time 22113us
-I (15544) Client: Send 0xc002e5
-I (15614) Client: Recv 0xc102e5, tid 0x0008, time 68969us
-I (16694) Client: Send 0xc002e5
-I (16714) Client: Recv 0xc102e5, tid 0x0009, time 21782us
-I (17784) Client: Send 0xc002e5
-I (17814) Client: Recv 0xc102e5, tid 0x000a, time 25010us
-```
-#### 2.2 Node - Vendor Server
+#### 2.1 Provisioning
 
 ```
-I (6409) Server: Recv 0xc002e5, tid 0x0001
-I (6429) Server: Send 0xc102e5
-I (7609) Server: Recv 0xc002e5, tid 0x0002
-I (7619) Server: Send 0xc102e5
-I (8719) Server: Recv 0xc002e5, tid 0x0003
-I (8729) Server: Send 0xc102e5
-I (9899) Server: Recv 0xc002e5, tid 0x0004
-I (9909) Server: Send 0xc102e5
-I (11189) Server: Recv 0xc002e5, tid 0x0005
-I (11199) Server: Send 0xc102e5
-I (12379) Server: Recv 0xc002e5, tid 0x0006
-I (12389) Server: Send 0xc102e5
-I (13759) Server: Recv 0xc002e5, tid 0x0007
-I (13769) Server: Send 0xc102e5
-I (15189) Server: Recv 0xc002e5, tid 0x0008
-I (15209) Server: Send 0xc102e5
-I (16339) Server: Recv 0xc002e5, tid 0x0009
-I (16349) Server: Send 0xc102e5
-I (17439) Server: Recv 0xc002e5, tid 0x000a
-I (17449) Server: Send 0xc102e5
+I (653) EXAMPLE: ESP_BLE_MESH_PROVISIONER_SET_DEV_UUID_MATCH_COMP_EVT, err_code 0
+I (663) EXAMPLE: ESP_BLE_MESH_PROVISIONER_PROV_ENABLE_COMP_EVT, err_code 0
+I (673) EXAMPLE: ESP_BLE_MESH_PROVISIONER_ADD_LOCAL_APP_KEY_COMP_EVT, err_code 0
+I (673) EXAMPLE: ESP_BLE_MESH_PROVISIONER_BIND_APP_KEY_TO_MODEL_COMP_EVT, err_code 0
+I (683) EXAMPLE: ESP BLE Mesh Provisioner initialized
+I (693) main_task: Returned from app_main()
+I (13453) EXAMPLE: ESP_BLE_MESH_PROVISIONER_RECV_UNPROV_ADV_PKT_EVT
+I (13453) Device address: 34 85 18 99 ac c6 
+I (13453) EXAMPLE: Address type 0x00, adv type 0x03
+I (13453) Device UUID: 32 10 34 85 18 99 ac c6 00 00 00 00 00 00 00 00 
+I (13463) EXAMPLE: oob info 0x0000, bearer PB-ADV
+I (13473) EXAMPLE: ESP_BLE_MESH_PROVISIONER_PROV_LINK_OPEN_EVT, bearer PB-ADV
+I (13473) EXAMPLE: ESP_BLE_MESH_PROVISIONER_ADD_UNPROV_DEV_COMP_EVT, err_code 0
+I (15343) EXAMPLE: node_index 0, primary_addr 0x0005, element_num 1, net_idx 0x000
+I (15343) uuid: 32 10 34 85 18 99 ac c6 00 00 00 00 00 00 00 00 
+I (15353) EXAMPLE_NVS: Store, key "vendor_client", length 4
+I (15353) EXAMPLE_NVS: Store, data: 05 00 00 00 
+I (15363) EXAMPLE: ESP_BLE_MESH_PROVISIONER_SET_NODE_NAME_COMP_EVT, err_code 0
+I (15373) EXAMPLE: Node 0 name NODE-00
+I (15793) EXAMPLE: Config client, err_code 0, event 0, addr 0x0005, opcode 0x8008
+I (15793) Composition data: e5 02 00 00 00 00 0a 00 03 00 00 00 01 01 00 00 
+I (15803) Composition data: e5 02 01 00 
+I (15803) EXAMPLE: ********************** Composition Data Start **********************
+I (15813) EXAMPLE: * CID 0x02e5, PID 0x0000, VID 0x0000, CRPL 0x000a, Features 0x0003 *
+I (15823) EXAMPLE: * Loc 0x0000, NumS 0x01, NumV 0x01 *
+I (15823) EXAMPLE: * SIG Model ID 0x0000 *
+I (15833) EXAMPLE: * Vendor Model ID 0x0001, Company ID 0x02e5 *
+I (15843) EXAMPLE: *********************** Composition Data End ***********************
+I (15853) EXAMPLE: ESP_BLE_MESH_PROVISIONER_STORE_NODE_COMP_DATA_COMP_EVT, err_code 0
+I (16083) EXAMPLE: Config client, err_code 0, event 1, addr 0x0005, opcode 0x0000
+I (16163) EXAMPLE: Config client, err_code 0, event 1, addr 0x0005, opcode 0x803d
+W (16173) EXAMPLE: example_ble_mesh_config_client_cb, Provision and config successfully
+I (17353) EXAMPLE: ESP_BLE_MESH_PROVISIONER_PROV_LINK_CLOSE_EVT, bearer PB-ADV, reason 0x00
+
+
+```
+#### 2.2 OTA Progress Update
+
+> Note: for this example, the boot button triggers the credential transfer
+
+```
+I (23163) EXAMPLE: Sent OTA credentials
+I (23163) EXAMPLE_NVS: Store, key "vendor_client", length 4
+I (23163) EXAMPLE_NVS: Store, data: 05 00 00 00 
+I (23183) EXAMPLE: Send 0xc202e5
+I (23183) EXAMPLE: Send 0xc302e5
+I (23183) EXAMPLE: Send 0xc402e5
+I (23183) EXAMPLE: Send 0xc502e5
+I (30273) EXAMPLE: Received ota update, OTA size: 28672
+I (31253) EXAMPLE: Received ota update, OTA size: 56320
+I (32213) EXAMPLE: Received ota update, OTA size: 84992
+I (33183) EXAMPLE: Received ota update, OTA size: 110592
+I (34213) EXAMPLE: Received ota update, OTA size: 138240
+I (35293) EXAMPLE: Received ota update, OTA size: 163840
+I (36203) EXAMPLE: Received ota update, OTA size: 192512
+I (37203) EXAMPLE: Received ota update, OTA size: 220160
+I (38173) EXAMPLE: Received ota update, OTA size: 245760
 ```
