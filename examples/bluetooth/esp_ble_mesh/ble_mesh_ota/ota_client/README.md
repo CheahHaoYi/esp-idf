@@ -4,7 +4,7 @@
 ESP BLE Mesh OTA Client Example
 ==================================
 
-This example demonstrates how to create a vendor client model in Provisioner, and the [ota server example](../ota_server) demonstrates how to create a vendor server model in an unprovisioned device.
+This example demonstrates how to do Over The Air (OTA) update with BLE Mesh, and the [ota server example](../ota_server) demonstrates how a board running BLE Mesh can be updated.
 
 ### 1. Procedures
 
