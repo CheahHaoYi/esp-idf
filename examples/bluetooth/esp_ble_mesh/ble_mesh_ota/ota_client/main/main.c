@@ -11,10 +11,21 @@
 
 #define TAG "EXAMPLE"
 
+#ifdef CONFIG_EXAMPLE_WIFI_CRED_FROM_STDIN
+char wifi_ssid[WIFI_SSID_MAX_LEN];
+char wifi_pw[WIFI_PSWD_MAX_LEN];
+#else
 char wifi_ssid[] = CONFIG_EXAMPLE_WIFI_SSID;
 char wifi_pw[] = CONFIG_EXAMPLE_WIFI_PASSWORD;
+#endif
+
+#ifdef CONFIG_EXAMPLE_OTA_INFO_FROM_STDIN
+char ota_url[OTA_URL_SIZE];
+uint64_t ota_size = 0;
+#else 
 char ota_url[] = CONFIG_EXAMPLE_OTA_URL;
 uint64_t ota_size = CONFIG_EXAMPLE_OTA_SIZE;
+#endif
 
 static uint8_t dev_uuid[ESP_BLE_MESH_OCTET16_LEN];
 static nvs_handle_t NVS_HANDLE;
@@ -580,13 +591,57 @@ static esp_err_t ble_mesh_init(void)
     return ESP_OK;
 }
 
+// TODO: read OTA info, using temp var
+#if CONFIG_EXAMPLE_OTA_INFO_FROM_STDIN
+static esp_err_t read_ota_info(void)
+{
+    example_configure_stdin_stdout();
+
+    ESP_LOGI(TAG, "Please input firmware upgrade image url: ");
+    fgets(ota_url, OTA_URL_SIZE, stdin);
+    int len = strlen(ota_url);
+    
+    if (len == 0) {
+        ESP_LOGE(TAG, "No url provided");
+        return ESP_ERR_INVALID_ARG;
+    }
+    ota_url[len - 1] = '\0';
+
+    ESP_LOGI(TAG, "Please input firmware upgrade image size: ");
+    if (scanf("%" SCNu64, &ota_size) != 1) {
+        ESP_LOGE(TAG, "Invalid size provided");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    ESP_LOGI(TAG, "OTA size: %" PRIu64 ", URL: %s", ota_size, ota_url);
+    return ESP_OK;
+}
+#endif
+
+// TODO: read wifi info
+#if CONFIG_EXAMPLE_WIFI_CRED_FROM_STDIN
+static esp_err_t read_wifi_info(void)
+{
+    example_configure_stdin_stdout();
+
+    ESP_LOGI(TAG, "Please input wifi ssid: ");
+    fgets(wifi_ssid, WIFI_SSID_MAX_LEN, stdin);
+    int len = strlen(wifi_ssid);
+    wifi_ssid[len - 1] = '\0';
+
+    ESP_LOGI(TAG, "Please input wifi password: ");
+    fgets(wifi_pw, WIFI_PSWD_MAX_LEN, stdin);
+    len = strlen(wifi_pw);
+    wifi_pw[len - 1] = '\0';
+
+    ESP_LOGI(TAG, "Wifi credentials received: %s , %s ", wifi_ssid, wifi_pw);
+
+    return ESP_OK;
+}
+#endif
+
 void app_main(void)
 {
-    #if CONFIG_EXAMPLE_OTA_SIZE == 0
-    ESP_LOGI(TAG, "Expected OTA size is 0, aborting, please set CONFIG_EXAMPLE_OTA_SIZE in menuconfig");
-    return;
-    #endif
-
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -610,6 +665,22 @@ void app_main(void)
     }
 
     ble_mesh_get_dev_uuid(dev_uuid);
+
+    #if CONFIG_EXAMPLE_WIFI_CRED_FROM_STDIN
+    err = read_wifi_info();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to read wifi info");
+        // return;
+    }
+    #endif
+
+    #if CONFIG_EXAMPLE_OTA_INFO_FROM_STDIN
+    err = read_ota_info();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to read ota info");
+        // return;
+    }
+    #endif
 
     /* Initialize the Bluetooth Mesh Subsystem */
     err = ble_mesh_init();

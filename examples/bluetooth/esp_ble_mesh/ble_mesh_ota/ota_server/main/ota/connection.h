@@ -1,3 +1,12 @@
+/* connection.h - Wifi Connection utility */
+
+/*
+ * SPDX-FileCopyrightText: 2017 Intel Corporation
+ * SPDX-FileContributor: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #pragma once
 
 #include <string.h>
@@ -12,9 +21,9 @@
 #define WIFI_SSID_MAX_LEN 32
 #define WIFI_PSWD_MAX_LEN 64
 
-/* The event group allows multiple bits for each event, but we only care about two events:
- * - we are connected to the AP with an IP
- * - we failed to connect after the maximum amount of retries */
+/* The event group allows multiple bits for each event, the relevant events are:
+ * - getting connected to the AP with an IP
+ * - failed to connect after the maximum amount of retries */
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
@@ -57,8 +66,30 @@
 #define WIFI_THRESHOLD_AUTHMODE EXAMPLE_WIFI_SCAN_AUTH_MODE_THRESHOLD
 #define WIFI_RETRY_LIMIT CONFIG_EXAMPLE_WIFI_CONN_MAX_RETRY
 
+/**
+ * @brief   Set the WiFi SSID
+ * 
+ * @param[in]   ssid    WiFi SSID
+ * @param[in]   len     Length of the SSID
+ * 
+ * @return ESP_OK on success; any other value indicates an error
+*/
 esp_err_t set_wifi_ssid(uint8_t *ssid, uint16_t len);
 
+/**
+ * @brief   Set the WiFi password
+ * 
+ * @param[in]   password    WiFi password
+ * @param[in]   len         Length of the password
+ * 
+ * @return ESP_OK on success; any other value indicates an error
+*/
 esp_err_t set_wifi_password(uint8_t *password, uint16_t len);
 
+/**
+ * @brief   Connect to the WiFi AP
+ * @note    The WiFi SSID and password must be set before calling this function
+ * 
+ * @return ESP_OK on success; any other value indicates an error
+*/
 esp_err_t simple_connect(void);

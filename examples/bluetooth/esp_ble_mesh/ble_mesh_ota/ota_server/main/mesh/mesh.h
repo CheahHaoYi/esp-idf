@@ -1,3 +1,12 @@
+/* mesh.h - BLE Mesh Model Description */
+
+/*
+ * SPDX-FileCopyrightText: 2017 Intel Corporation
+ * SPDX-FileContributor: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #pragma once
 
 #include "esp_err.h"
@@ -57,8 +66,23 @@
 #define RECEIVE_OTA_SIZE_FLAG (1 << 3)
 #define ALL_RECEIVED_FLAG (RECEIVE_SSID_FLAG | RECEIVE_PW_FLAG | RECEIVE_OTA_URL_FLAG | RECEIVE_OTA_SIZE_FLAG)
 
+/**
+ * @brief   Initialize BLE Mesh
+ * 
+ * @return  ESP_OK on success, any other value indicates error
+*/
 esp_err_t ble_mesh_init(void);
 
+/**
+ * @brief   Wrapper to send firmware download process to Mesh Client
+ * 
+ * @param[in]   ota_size   Size of the OTA image
+*/
 esp_err_t send_ota_size_update(uint64_t ota_size);
 
+/**
+ * @brief  Deinitialize BLE Mesh
+ * 
+ * @return  ESP_OK on success, any other value indicates error
+*/
 esp_err_t ble_mesh_deinit(void);

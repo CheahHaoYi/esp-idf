@@ -1,3 +1,12 @@
+/* mesh.c - BLE Mesh Model Description */
+
+/*
+ * SPDX-FileCopyrightText: 2017 Intel Corporation
+ * SPDX-FileContributor: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include "mesh.h"
 
 static const char *TAG = "MESH";
@@ -76,8 +85,12 @@ static esp_ble_mesh_msg_ctx_t mesh_client_ctx = {
     .send_rel = MSG_TO_SEND_RELIABLY,
 };
 
-// Provisioning Callback
-// Provisioner events and node config events
+
+/**
+ * @brief   Provisioning Callback
+ * @details Handle provisioning events
+ * 
+*/
 static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event, esp_ble_mesh_prov_cb_param_t *param)
 {
     switch (event) {
@@ -117,6 +130,10 @@ static void ble_mesh_provisioning_cb(esp_ble_mesh_prov_cb_event_t event, esp_ble
 /******************************************
  * BLE Mesh Configuration Server Related Functions 
  * ****************************************/
+
+/**
+ * @brief   Process configuration server state changes
+*/
 static void process_server_changes(uint32_t opcode, esp_ble_mesh_cfg_server_state_change_t value_received)
 {
     switch (opcode) {
@@ -136,8 +153,11 @@ static void process_server_changes(uint32_t opcode, esp_ble_mesh_cfg_server_stat
     return;
 }
 
-// Configuration Server Callback
-// Handle configuration server event
+/**
+ * @brief   Configuration Server Callback
+ * @details Handle configuration server events
+ * 
+*/
 static void ble_mesh_config_server_cb(esp_ble_mesh_cfg_server_cb_event_t event, esp_ble_mesh_cfg_server_cb_param_t *param)
 {
     if (event == ESP_BLE_MESH_CFG_SERVER_STATE_CHANGE_EVT) {
@@ -153,6 +173,12 @@ static void ble_mesh_config_server_cb(esp_ble_mesh_cfg_server_cb_event_t event, 
 /******************************************
  * BLE Mesh Custom Model Related Functions 
  * ****************************************/
+
+/**
+ * @brief   Process opcode received from Client
+ * @details Distinguish between different messages and update information accordingly
+ * 
+*/
 static void process_received_opcode(uint32_t opcode, struct ble_mesh_model_operation_evt_param *model_op)
 {
     static uint8_t received_credentials_flag = 0;
@@ -229,6 +255,10 @@ esp_err_t send_ota_size_update(uint64_t ota_size)
     return esp_ble_mesh_server_model_send_msg(model, ctx, opcode, length, data);
 }
 
+/**
+ * @brief   Update context of received message
+ *
+*/
 void update_mesh_client_ctx(esp_ble_mesh_msg_ctx_t *recv_ctx)
 {
     mesh_client_ctx.net_idx = recv_ctx->net_idx;
@@ -242,8 +272,10 @@ void update_mesh_client_ctx(esp_ble_mesh_msg_ctx_t *recv_ctx)
     ESP_LOGI(TAG, "Recv TTL: 0x%04x", recv_ctx->recv_ttl);
 }
 
-// Register BLE Mesh callback for user-defined models’ operations 
-// Handle message sending and receiving events
+/**
+ * @brief   BLE Mesh callback for user-defined models’ operations 
+ * @details Handle message sending and receiving events
+*/
 static void ble_mesh_custom_model_cb(esp_ble_mesh_model_cb_event_t event, esp_ble_mesh_model_cb_param_t *param)
 {
     switch (event) {

@@ -1,3 +1,12 @@
+/* task.h - Application example task */
+
+/*
+ * SPDX-FileCopyrightText: 2017 Intel Corporation
+ * SPDX-FileContributor: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #pragma once
 
 #include "esp_log.h"
@@ -12,8 +21,7 @@
    If you'd rather not, just change the below entries to number with
    the config you want - ie #define OTA_VERSION 1
 */
-// #define OTA_VERSION CONFIG_OTA_VERSION
-#define OTA_VERSION 2
+#define OTA_VERSION CONFIG_OTA_VERSION
 
 #define LED_PIN CONFIG_BLINK_GPIO
 #define BLINK_PERIOD (OTA_VERSION * 500)
@@ -58,8 +66,24 @@ typedef struct {
     uint8_t blue;
 } led_rgb_t;
 
+/**
+ * @brief   Interface to set on-board LED globally
+ * @details Used in example to indicate event state
+ * 
+ * @param[in]   color       RGB color to set
+ * @param[in]   duration_ms Duration in milliseconds to set LED
+*/
 void ota_set_led(led_rgb_t *color, uint32_t duration_ms);
 
+/**
+ * @brief   Initialize hardware for task, in this example to blink LED
+ *
+*/
 esp_err_t task_init(void);
 
+/**
+ * @brief   Run task
+ * @note   The LED control from ota_set_led() takes precedence over the task LED blinks
+ *
+*/
 void task_run(void* arg);

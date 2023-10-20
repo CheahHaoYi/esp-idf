@@ -1,3 +1,12 @@
+/* main.c - Application main entry point */
+
+/*
+ * SPDX-FileCopyrightText: 2017 Intel Corporation
+ * SPDX-FileContributor: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include "esp_log.h"
 
 #include "nvs.h"
@@ -21,12 +30,20 @@ static const char *TAG = "BLE_MESH_OTA";
 
 static SemaphoreHandle_t xSemaphore_wifi = NULL;
 
+/**
+ * @brief   Wrapper to trigger OTA sequence from BLE Mesh
+ * 
+*/
 void trigger_ota(void)
 {
     ESP_LOGI(TAG, "Triggering OTA sequence");
     xSemaphoreGive(xSemaphore_wifi);
 }
 
+/**
+ * @brief   Log partition details to check if OTA update was successful 
+ * 
+*/
 void get_partition_details(void)
 {
     const esp_partition_t *configured = esp_ota_get_boot_partition();
@@ -39,7 +56,10 @@ void get_partition_details(void)
     ESP_LOGI(TAG, "Example OTA Version: %d", OTA_VERSION);
 }
 
-
+/**
+ * @brief high level description of OTA update sequence   
+ * @details The LED will turn white to indicate that the sequence is triggered
+*/
 esp_err_t update_sequence(void) 
 {
     esp_err_t err;
@@ -61,7 +81,16 @@ esp_err_t update_sequence(void)
     return err;
 }
 
-
+/**
+ * @brief   b
+ * @details d
+ * 
+ * @note    n
+ * @ref     r
+ * @link    l
+ * 
+ * @param[in]   arg     argument 
+*/
 void app_main()
 {
     // Initialize NVS.

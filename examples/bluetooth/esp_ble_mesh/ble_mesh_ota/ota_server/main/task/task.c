@@ -1,3 +1,12 @@
+/* task.c - Application example task */
+
+/*
+ * SPDX-FileCopyrightText: 2017 Intel Corporation
+ * SPDX-FileContributor: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include "task.h"
 
 static const char* TAG = "TASK";
@@ -19,10 +28,14 @@ void ota_set_led(led_rgb_t *color, uint32_t duration_ms) {
     ota_led_on_duration = duration_ms;
 }
 
+/**
+ * @brief Interface to control LED
+ * @note The LED control from ota_set_led() takes precedence over the task LED blinks
+ * 
+ * @param[in]   is_on   LED blink state
+*/
 static void set_led(bool is_on)
-{
-    // OTA led state takes precedence over task led state
-    
+{    
     if (is_led_in_ota_state) {
         led_strip_set_pixel(
             led_handle, LED_INDEX, 
@@ -53,7 +66,8 @@ esp_err_t task_init(void)
     };
 
     led_strip_rmt_config_t rmt_config = {
-        .resolution_hz = LED_STRIP_RMT_RES_HZ, // RMT counter clock frequency
+        // RMT counter clock frequency
+        .resolution_hz = LED_STRIP_RMT_RES_HZ, 
     };
 
     ESP_ERROR_CHECK(led_strip_new_rmt_device(&led_config, &rmt_config, &led_handle));
@@ -63,7 +77,6 @@ esp_err_t task_init(void)
 
 void task_run(void* arg)
 {
-    // to control led blinking within the task
     bool is_led_blink = false;
 
     while (true) {

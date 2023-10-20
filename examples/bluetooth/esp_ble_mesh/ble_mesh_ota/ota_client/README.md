@@ -20,6 +20,8 @@ This example demonstrates how to create a vendor client model in Provisioner, an
 The following is a sample test result, the distance between the Provisioner and the node is about 1 meter.
 
 #### 2.1 Provisioner - Vendor Client
+
+```
 I (6684) Client: Send 0xc002e5
 I (6834) Client: Recv 0xc102e5, tid 0x0001, time 156585us
 I (7934) Client: Send 0xc002e5
@@ -40,8 +42,10 @@ I (16694) Client: Send 0xc002e5
 I (16714) Client: Recv 0xc102e5, tid 0x0009, time 21782us
 I (17784) Client: Send 0xc002e5
 I (17814) Client: Recv 0xc102e5, tid 0x000a, time 25010us
-
+```
 #### 2.2 Node - Vendor Server
+
+```
 I (6409) Server: Recv 0xc002e5, tid 0x0001
 I (6429) Server: Send 0xc102e5
 I (7609) Server: Recv 0xc002e5, tid 0x0002
@@ -62,3 +66,4 @@ I (16339) Server: Recv 0xc002e5, tid 0x0009
 I (16349) Server: Send 0xc102e5
 I (17439) Server: Recv 0xc002e5, tid 0x000a
 I (17449) Server: Send 0xc102e5
+```

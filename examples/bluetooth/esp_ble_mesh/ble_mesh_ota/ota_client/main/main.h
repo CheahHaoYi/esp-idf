@@ -1,3 +1,12 @@
+/* main.c - Application main entry point */
+
+/*
+ * SPDX-FileCopyrightText: 2017 Intel Corporation
+ * SPDX-FileContributor: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #pragma once
 
 #include <stdio.h>
@@ -18,6 +27,8 @@
 #include "ble_mesh_example_init.h"
 #include "ble_mesh_example_nvs.h"
 #include "board.h"
+
+// #include "protocol_examples_common.h" // for stdin config
 
 #define LOC_DESCR 0 // Location Descriptor
 #define CID_ESP             0x02E5
@@ -57,3 +68,8 @@
 #define ESP_BLE_MESH_VND_MODEL_OP_OTA_SIZE_TRSF     ESP_BLE_MESH_MODEL_OP_3(0x05, CID_ESP)
 
 #define ESP_BLE_MESH_VND_MODEL_OP_OTA_PROGRESS          ESP_BLE_MESH_MODEL_OP_3(0x06, CID_ESP)
+
+#define WIFI_SSID_MAX_LEN 32
+#define WIFI_PSWD_MAX_LEN 64
+
+#define OTA_URL_SIZE 256

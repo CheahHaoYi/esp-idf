@@ -1,3 +1,12 @@
+/* connection.h - Wifi Connection utility */
+
+/*
+ * SPDX-FileCopyrightText: 2017 Intel Corporation
+ * SPDX-FileContributor: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include "connection.h"
 
 #define TAG "CONNECTION-WIFI"
@@ -99,7 +108,10 @@ esp_err_t set_wifi_password(uint8_t *password, uint16_t len)
     return ESP_OK;
 }
 
-esp_err_t update_wifi_config(void)
+/**
+ * @brief   Update the WiFi configuration from buffer
+*/
+static esp_err_t update_wifi_config(void)
 {
     memcpy(wifi_config.sta.ssid, client_received_ssid, sizeof(wifi_config.sta.ssid));
     memcpy(wifi_config.sta.password, client_received_password, sizeof(wifi_config.sta.password));
@@ -107,7 +119,10 @@ esp_err_t update_wifi_config(void)
     return ESP_OK;
 }
 
-esp_err_t register_handler(void)
+/** 
+ * @brief   Register event handler for WiFi events
+*/
+static esp_err_t register_handler(void)
 {
     s_wifi_event_group = xEventGroupCreate();
     esp_event_handler_instance_t instance_any_id;

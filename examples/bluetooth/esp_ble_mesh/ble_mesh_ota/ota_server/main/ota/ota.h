@@ -1,11 +1,12 @@
-/* OTA example
+/* ota.h - OTA update utility */
 
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
+/*
+ * SPDX-FileCopyrightText: 2017 Intel Corporation
+ * SPDX-FileContributor: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
 #include "string.h"
 #include "mesh/mesh.h"
 
@@ -35,8 +36,35 @@
 #define OTA_RECV_TIMEOUT CONFIG_EXAMPLE_OTA_RECV_TIMEOUT_MS
 #define OTA_UPDATE_INTERVAL CONFIG_EXAMPLE_OTA_UPDATE_INTERVAL_MS
 
+/**
+ * @brief   Perform firmware download over HTTPS
+ * @note    The firmware download ends based on the firmware size received from HTTPS server header
+ *          If the server did not provide the content length header,
+ *          The firmware download ends based on the expected firmware size provided by Mesh Client
+ * 
+ * @note    The firmware update url and expected size must be set before calling this function
+ * 
+ * @return  ESP_OK on success, any other value indicates error
+*/
 esp_err_t ota_update(void);
 
+/**
+ * @brief   Set the URL for the firmware download
+ * 
+ * @param   url     URL of the firmware image
+ * @param   len     Length of the URL
+ * 
+ * @return  ESP_OK on success, ESP_ERR_INVALID_ARG if the URL is invalid
+ * 
+*/
 esp_err_t set_ota_url(uint8_t *url, uint16_t len);
 
+/**
+ * @brief   Set the expected size of the firmware image
+ * 
+ * @param   received_size   Size of the firmware image
+ * 
+ * @return  ESP_OK on success, ESP_ERR_INVALID_ARG if the size is invalid
+ * 
+*/
 esp_err_t set_expected_ota_size(uint64_t received_size);

@@ -1,3 +1,12 @@
+/* ota.h - OTA update utility */
+
+/*
+ * SPDX-FileCopyrightText: 2017 Intel Corporation
+ * SPDX-FileContributor: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include "ota.h"
 
 static const char *TAG = "OTA";
@@ -12,7 +21,7 @@ static bool has_ota_handle_registered = false;
 static uint64_t expected_ota_size;
 static uint64_t ota_size_progress = 0; 
 
-esp_http_client_config_t http_config = {
+static esp_http_client_config_t http_config = {
     .event_handler = http_event_handler,
     .keep_alive_enable = false,
     .timeout_ms = OTA_RECV_TIMEOUT,
@@ -138,11 +147,18 @@ static void ota_event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
+/**
+ * @brief   Send OTA size update to mesh client
+ * @note    Wrapper for RTOS timer
+*/
 static void update_ota_progress(TimerHandle_t handle)
 {   
     send_ota_size_update(ota_size_progress);
 }
 
+/**
+ * @brief   Log SHA-256 hash of current firmware and bootloader
+*/
 static void log_partition_sha256_info(void)
 {
     uint8_t sha_256[HASH_LEN] = { 0 };
@@ -164,6 +180,9 @@ static void log_partition_sha256_info(void)
 
 }
 
+/**
+ * @brief   Log Info of incoming firmware update
+*/
 static void log_ota_app_info(esp_app_desc_t *app_desc)
 {
     ESP_LOGI(TAG, "********** Incoming OTA App Info Start **********");
@@ -176,7 +195,11 @@ static void log_ota_app_info(esp_app_desc_t *app_desc)
     ESP_LOGI(TAG, "********** Incoming OTA App Info End **********");
 }
 
-esp_err_t ota_firmware_download(esp_https_ota_handle_t https_ota_handle)
+
+/**
+ * @brief   Perform firmware download over HTTPS
+*/
+static esp_err_t ota_firmware_download(esp_https_ota_handle_t https_ota_handle)
 {
     esp_err_t err = ESP_ERR_HTTPS_OTA_IN_PROGRESS;
     // Test for OTA size

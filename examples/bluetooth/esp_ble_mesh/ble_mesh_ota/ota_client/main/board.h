@@ -12,4 +12,6 @@
 
 void board_init(void);
 
+esp_err_t example_configure_stdin_stdout(void);
+
 #endif /* _BOARD_H_ */

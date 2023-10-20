@@ -20,7 +20,7 @@ menu "Example Task Configuration"
         help
           WiFi password to use
 
-    config EXAMPLE_OTA_URL_FROM_STDIN
+    config EXAMPLE_OTA_INFO_FROM_STDIN
         bool "OTA URL from stdin"
         default n
         help
@@ -28,14 +28,15 @@ menu "Example Task Configuration"
 
     config EXAMPLE_OTA_URL
         string "OTA URL"
-        default "https://127.0.0.1:8070/ble_mesh_ota_bin"
-        depends on !EXAMPLE_OTA_URL_FROM_STDIN
+        default "https://127.0.0.1:8070/ble_mesh_ota.bin"
+        depends on !EXAMPLE_OTA_INFO_FROM_STDIN
         help
           OTA URL to use
         
     config EXAMPLE_OTA_SIZE
         int "OTA Size"
         default 0
+        depends on !EXAMPLE_OTA_INFO_FROM_STDIN
         help
           Size of OTA image to download, cannot be 0
 
