@@ -1,0 +1,11 @@
+[req]
+default_bit = 4096
+distinguished_name = req_distinguished_name
+prompt = no
+
+[req_distinguished_name]
+countryName             = SG
+stateOrProvinceName     = SG
+localityName            = SG
+organizationName        = Espressif
+commonName              = 10.10.2.71 

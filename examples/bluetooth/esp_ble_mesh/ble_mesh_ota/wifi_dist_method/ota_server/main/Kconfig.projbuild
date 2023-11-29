@@ -1,0 +1,131 @@
+menu "Example Task Configuration"
+
+    orsource "$IDF_PATH/examples/common_components/env_caps/$IDF_TARGET/Kconfig.env_caps"
+
+    config BLINK_GPIO
+        int "Blink GPIO number"
+        range ENV_GPIO_RANGE_MIN ENV_GPIO_OUT_RANGE_MAX
+        default 5 if IDF_TARGET_ESP32
+        default 18 if IDF_TARGET_ESP32S2
+        default 48 if IDF_TARGET_ESP32S3
+        default 8
+        help
+            GPIO number (IOxx) to blink on and off or the RMT signal for the addressable LED.
+            Some GPIOs are used for other purposes (flash connections, etc.) and cannot be used to blink.
+
+    config OTA_VERSION
+        int "OTA Version"
+        range 1 4
+        default 1
+        help 
+            Example to show changes in OTA version
+
+endmenu
+
+menu "Example Wifi Configuration"
+    choice EXAMPLE_WIFI_SCAN_METHOD
+        prompt "WiFi Scan Method"
+        default EXAMPLE_WIFI_SCAN_METHOD_ALL_CHANNEL
+        help
+            WiFi scan method:
+
+            If "Fast" is selected, scan will end after find SSID match AP.
+
+            If "All Channel" is selected, scan will end after scan all the channel.
+
+        config EXAMPLE_WIFI_SCAN_METHOD_FAST
+            bool "Fast"
+        config EXAMPLE_WIFI_SCAN_METHOD_ALL_CHANNEL
+            bool "All Channel"
+    endchoice
+
+    choice EXAMPLE_WIFI_CONNECT_AP_SORT_METHOD
+        prompt "WiFi Connect AP Sort Method"
+        default EXAMPLE_WIFI_CONNECT_AP_BY_SIGNAL
+        help
+            WiFi connect AP sort method:
+
+            If "Signal" is selected, Sort matched APs in scan list by RSSI.
+
+            If "Security" is selected, Sort matched APs in scan list by security mode.
+
+        config EXAMPLE_WIFI_CONNECT_AP_BY_SIGNAL
+            bool "Signal"
+        config EXAMPLE_WIFI_CONNECT_AP_BY_SECURITY
+            bool "Security"
+    endchoice
+
+    menu "WiFi Scan threshold"
+        config EXAMPLE_WIFI_SCAN_RSSI_THRESHOLD
+            int "WiFi minimum rssi"
+            range -127 0
+            default -127
+            help
+                The minimum rssi to accept in the scan mode.
+
+        choice EXAMPLE_WIFI_SCAN_AUTH_MODE_THRESHOLD
+            prompt "WiFi Scan auth mode threshold"
+            default EXAMPLE_WIFI_AUTH_WPA2_PSK
+            help
+                The weakest authmode to accept in the scan mode.
+
+            config EXAMPLE_WIFI_AUTH_OPEN
+                bool "OPEN"
+            config EXAMPLE_WIFI_AUTH_WEP
+                bool "WEP"
+            config EXAMPLE_WIFI_AUTH_WPA_PSK
+                bool "WPA PSK"
+            config EXAMPLE_WIFI_AUTH_WPA2_PSK
+                bool "WPA2 PSK"
+            config EXAMPLE_WIFI_AUTH_WPA_WPA2_PSK
+                bool "WPA WPA2 PSK"
+            config EXAMPLE_WIFI_AUTH_WPA2_ENTERPRISE
+                bool "WPA2 ENTERPRISE"
+            config EXAMPLE_WIFI_AUTH_WPA3_PSK
+                bool "WPA3 PSK"
+            config EXAMPLE_WIFI_AUTH_WPA2_WPA3_PSK
+                bool "WPA2 WPA3 PSK"
+            config EXAMPLE_WIFI_AUTH_WAPI_PSK
+                bool "WAPI PSK"
+        endchoice
+    endmenu
+
+    config EXAMPLE_WIFI_CONN_MAX_RETRY
+        int "Maximum retry"
+        default 6
+        help
+            Set the Maximum retry to avoid station reconnecting to the AP unlimited,
+            in case the AP is really inexistent.
+
+endmenu
+
+menu "Example OTA Configuration"
+
+    config EXAMPLE_USE_CERT_BUNDLE
+        bool "Enable certificate bundle"
+        default n
+        depends on MBEDTLS_CERTIFICATE_BUNDLE
+        help
+            Enable trusted root certificate bundle. This approach allows to have
+            OTA updates functional with any public server without requirement
+            to explicitly add its server certificate.
+
+    config EXAMPLE_SKIP_COMMON_NAME_CHECK
+        bool "Skip server certificate CN fieldcheck"
+        default y
+        help
+            This allows you to skip the validation of OTA server certificate CN field.
+
+    config EXAMPLE_OTA_RECV_TIMEOUT_MS
+        int "OTA Receive Timeout"
+        default 5000
+        help
+            Maximum time for reception
+
+    config EXAMPLE_OTA_UPDATE_INTERVAL_MS
+        int "OTA Update Interval"
+        default 1000
+        help
+            Interval between updates of OTA size to BLE Client
+
+endmenu
