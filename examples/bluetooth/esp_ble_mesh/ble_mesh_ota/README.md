@@ -42,12 +42,38 @@ This approach made a HUGE assumption: that the server node must be within the WI
 #### References
 - [ESP HTTPS OTA API](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/esp_https_ota.html) 
 
-### TCP Method 
-
-
 ### ESP Now Method
+Instead of having the server to download the firmware directly via WIFI. The client would first download the firmware, then transfer the firmware to other nodes via ESP-NOW as a OTA initiator.
+
+> Note: currently the implementation is located in the wifi_dist folder example, the code is in the conn_enow.c file, some refactoring needed. 
+
+#### Considerations
+From testing, sometimes the OTA responder cannot receive messages from the OTA initiator reliably. It could be that ESP NOW requires both devices to be set on the same channel, more testing is required. The current ESP-NOW OTA API does not allow very fine control of the OTA process. 
+
+#### References
+- [ESP NOW OTA example](https://github.com/espressif/esp-now/tree/master/examples/ota)
+- [ESP RF coexist](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/coexist.html)
+
+
+### TCP Method 
+Similar to the ESP NOW method, this approach involve sending the firmware from the client to server via TCP packets. The lower level implementation will closely resemble that of the ESP-NOW initiator and responder API. Current implementation faces some issues on firmware download from http client (can refer to the ESP-NOW OTA example for more information)
+
+The implementation involves having the client, as a WIFI STA connecting to a WIFI AP to download the firmware.
+The client will then switch mode to SoftAP, and establish connection with the BLE servers (which switch on wifi mode upon receiving signals from the client).
+
+#### Consideration
+The current implementation tried to download the firmware via HTTP, one possibility that we can explore is to use the https_ota API to download the firmware instead.
+
+#### References
+- [ESP WIFI Station & SoftAP example](https://github.com/espressif/esp-idf/tree/master/examples/wifi/getting_started)
+- [ESP WIFI APSTA](https://github.com/espressif/esp-idf/tree/master/examples/wifi/softap_sta)
+- [ESP HTTPS OTA](https://github.com/espressif/esp-idf/tree/master/examples/system/ota)
 
 ## References
-[BLE Mesh Technical Overview](https://www.bluetooth.com/bluetooth-resources/bluetooth-mesh-models/)
-[ESP IDF BLE Mesh API](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/bluetooth/esp-ble-mesh.html)
+- [BLE Mesh Technical Overview](https://www.bluetooth.com/bluetooth-resources/bluetooth-mesh-models/)
+- [ESP IDF BLE Mesh API](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/bluetooth/esp-ble-mesh.html)
+
+
+
+
 
